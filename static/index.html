@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Chat AI</title>
+    <title>Divina Comida - Assistente</title>
 
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -16,17 +16,18 @@
 
     <style>
         :root {
-            --bg-main: #0a0a0f;
-            --bg-chat: #0f0f18;
-            --bg-user-msg: #2d5bff;
-            --bg-ai-msg: #1a1a2e;
-            --bg-input: #12121e;
-            --text-primary: #e8e8f0;
-            --text-secondary: #8888a0;
+            --bg-main: #1a1210;
+            --bg-chat: #1e1614;
+            --bg-user-msg: #c4632a;
+            --bg-ai-msg: #2a201c;
+            --bg-input: #241b17;
+            --text-primary: #f0e6df;
+            --text-secondary: #a0897d;
             --text-user: #ffffff;
-            --accent: #2d5bff;
-            --accent-glow: rgba(45, 91, 255, 0.15);
+            --accent: #c4632a;
+            --accent-glow: rgba(196, 99, 42, 0.2);
             --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-warm: rgba(196, 99, 42, 0.15);
             --header-h: 56px;
             --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
@@ -63,10 +64,10 @@
             align-items: center;
             justify-content: space-between;
             padding: 0 16px;
-            background: rgba(10, 10, 15, 0.85);
+            background: rgba(26, 18, 16, 0.9);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--border-warm);
             z-index: 10;
             flex-shrink: 0;
         }
@@ -77,17 +78,10 @@
             gap: 10px;
         }
 
-        .chat-header .brand-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, var(--accent), #6c3aed);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            color: #fff;
-            box-shadow: 0 2px 12px var(--accent-glow);
+        .chat-header .brand-logo {
+            height: 34px;
+            width: auto;
+            border-radius: 4px;
         }
 
         .chat-header .brand-name {
@@ -148,7 +142,7 @@
             width: 3px;
         }
         .chat-messages::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.1);
+            background: rgba(196,99,42,0.2);
             border-radius: 3px;
         }
 
@@ -192,7 +186,7 @@
             background: var(--bg-ai-msg);
             color: var(--text-primary);
             border-bottom-left-radius: 6px;
-            border: 1px solid var(--border-subtle);
+            border: 1px solid var(--border-warm);
         }
 
         /* Markdown dentro das mensagens */
@@ -252,16 +246,9 @@
             gap: 16px;
         }
 
-        .welcome-icon {
-            width: 64px;
-            height: 64px;
-            border-radius: 20px;
-            background: linear-gradient(135deg, var(--accent), #6c3aed);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            box-shadow: 0 8px 32px var(--accent-glow);
+        .welcome-logo {
+            height: 72px;
+            width: auto;
         }
 
         .welcome h2 {
@@ -285,8 +272,8 @@
         }
 
         .suggestion-chip {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border-subtle);
+            background: rgba(196,99,42,0.08);
+            border: 1px solid var(--border-warm);
             color: var(--text-secondary);
             padding: 8px 14px;
             border-radius: 20px;
@@ -296,9 +283,9 @@
         }
 
         .suggestion-chip:hover {
-            background: rgba(255,255,255,0.08);
+            background: rgba(196,99,42,0.15);
             color: var(--text-primary);
-            border-color: rgba(255,255,255,0.12);
+            border-color: rgba(196,99,42,0.3);
         }
 
         /* ===== INPUT AREA ===== */
@@ -306,10 +293,10 @@
             flex-shrink: 0;
             padding: 10px 12px;
             padding-bottom: calc(10px + var(--safe-bottom));
-            background: rgba(10, 10, 15, 0.9);
+            background: rgba(26, 18, 16, 0.95);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border-top: 1px solid var(--border-subtle);
+            border-top: 1px solid var(--border-warm);
         }
 
         .input-wrapper {
@@ -317,14 +304,14 @@
             align-items: flex-end;
             gap: 8px;
             background: var(--bg-input);
-            border: 1px solid var(--border-subtle);
+            border: 1px solid var(--border-warm);
             border-radius: 24px;
             padding: 6px 6px 6px 16px;
             transition: border-color 0.2s;
         }
 
         .input-wrapper:focus-within {
-            border-color: rgba(45, 91, 255, 0.4);
+            border-color: rgba(196, 99, 42, 0.4);
             box-shadow: 0 0 0 3px var(--accent-glow);
         }
 
@@ -389,10 +376,10 @@
     <!-- HEADER -->
     <header class="chat-header">
         <div class="brand">
-            <div class="brand-icon"><i class="bi bi-stars"></i></div>
+            <img src="/static/Logo-Divina3.png" alt="Divina Comida" class="brand-logo">
             <div>
-                <div class="brand-name">Chat AI</div>
-                <div class="status"><span class="dot"></span> Online</div>
+                <div class="brand-name">Divina Comida</div>
+                <div class="status"><span class="dot"></span> Assistente de Cardápio</div>
             </div>
         </div>
         <button class="btn-clear" onclick="clearChat()" title="Nova conversa">
@@ -403,13 +390,14 @@
     <!-- MESSAGES -->
     <div class="chat-messages" id="chatMessages">
         <div class="welcome" id="welcomeScreen">
-            <div class="welcome-icon"><i class="bi bi-stars"></i></div>
-            <h2>Olá! Como posso ajudar?</h2>
-            <p>Sou um assistente de IA. Pergunte qualquer coisa para começar.</p>
+            <img src="/static/Logo-Divina3.png" alt="Divina Comida" class="welcome-logo">
+            <h2>Assistente de Cardápio</h2>
+            <p>Tire dúvidas sobre receitas, custos, fichas técnicas e planejamento do cardápio.</p>
             <div class="suggestions">
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Explique IA generativa</div>
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Me ajude com Python</div>
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Dicas de produtividade</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Sugira lançamentos</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Sugestões de entradas com carne</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos com camarão</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Sugestões para 5 pessoas</div>
             </div>
         </div>
     </div>
@@ -420,7 +408,7 @@
             <textarea
                 id="msgInput"
                 rows="1"
-                placeholder="Digite sua mensagem..."
+                placeholder="Pergunte sobre cardápio, receitas, custos..."
                 onkeydown="handleKey(event)"
                 oninput="autoResize(this)"
             ></textarea>
@@ -616,13 +604,14 @@
 
         chatMessages.innerHTML = `
             <div class="welcome" id="welcomeScreen">
-                <div class="welcome-icon"><i class="bi bi-stars"></i></div>
-                <h2>Olá! Como posso ajudar?</h2>
-                <p>Sou um assistente de IA. Pergunte qualquer coisa para começar.</p>
+                <img src="/static/Logo-Divina3.png" alt="Divina Comida" class="welcome-logo">
+                <h2>Assistente de Cardápio</h2>
+                <p>Tire dúvidas sobre receitas, custos, fichas técnicas e planejamento do cardápio.</p>
                 <div class="suggestions">
-                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Explique IA generativa</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Me ajude com Python</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Dicas de produtividade</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Sugira pratos novos para o almoço</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Calcule o custo de um prato</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Crie uma ficha técnica</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Monte um cardápio semanal</div>
                 </div>
             </div>`;
     }
