@@ -272,6 +272,16 @@ Pratos criados em homenagem ao Mês das Mulheres.
 
 ---
 
+## PRATOS PROMOCIONAIS (servem 2 pessoas — proteína in natura)
+
+| Cód. | Prato | Peso | Preço | Acompanhamentos |
+|------|-------|------|-------|-----------------|
+| — | Filé à Parmegiana | 400g | 89,90 | Espaguete, arroz branco e purê |
+| — | Carne de Sol Completa | 350g | 89,90 | Baião de dois, paçoca, banana à milanesa e batata doce |
+| 274 | Maminha Completa | 400g | 97,16 | Baião de dois e batata frita |
+
+---
+
 ## PESCADOS NOBRES — SIRIGADO OU SALMÃO (400g in natura — servem 2 pessoas)
 
 | Preparo | Preço | Descrição |
