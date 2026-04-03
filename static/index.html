@@ -134,7 +134,6 @@
             overflow-x: hidden;
             padding: 16px 12px;
             background: var(--bg-chat);
-            scroll-behavior: smooth;
             -webkit-overflow-scrolling: touch;
         }
 
@@ -237,21 +236,25 @@
         /* Typing indicator */
         .typing-indicator {
             display: flex;
-            gap: 4px;
-            padding: 4px 0;
+            gap: 5px;
+            padding: 6px 4px;
+            align-items: center;
+            min-height: 24px;
         }
         .typing-indicator span {
-            width: 7px;
-            height: 7px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            background: var(--text-secondary);
+            background: var(--accent);
+            opacity: 0.5;
             animation: typing-bounce 1.4s infinite;
+            flex-shrink: 0;
         }
         .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
         .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
         @keyframes typing-bounce {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
             30% { transform: translateY(-6px); opacity: 1; }
         }
 
@@ -634,42 +637,62 @@
 
     // ===== SMART AUTO-SCROLL =====
     let userHasScrolledUp = false;
-    const SCROLL_THRESHOLD = 150; // px de tolerância para considerar "perto do fundo"
+    let isProgrammaticScroll = false;
+    const SCROLL_THRESHOLD = 150;
 
-    // Detecta quando o usuário rola manualmente para cima
+    // Detecta toque do usuário (touch ou mouse wheel) para distinguir de scroll programático
+    let userIsTouching = false;
+    chatMessages.addEventListener('touchstart', () => { userIsTouching = true; }, { passive: true });
+    chatMessages.addEventListener('touchend', () => {
+        // Delay para capturar o scroll inercial pós-toque
+        setTimeout(() => { userIsTouching = false; }, 800);
+    }, { passive: true });
+    chatMessages.addEventListener('wheel', () => { userIsTouching = true; setTimeout(() => { userIsTouching = false; }, 300); }, { passive: true });
+
     chatMessages.addEventListener('scroll', () => {
+        // Ignora eventos de scroll causados pelo próprio código
+        if (isProgrammaticScroll) return;
+
         const distFromBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight;
-        if (distFromBottom > SCROLL_THRESHOLD) {
+
+        if (distFromBottom > SCROLL_THRESHOLD && userIsTouching) {
             userHasScrolledUp = true;
             showScrollDownBtn(true);
-        } else {
+        } else if (distFromBottom <= SCROLL_THRESHOLD) {
             userHasScrolledUp = false;
             showScrollDownBtn(false);
         }
-    });
+    }, { passive: true });
 
     function scrollToBottom(force) {
         if (force || !userHasScrolledUp) {
+            isProgrammaticScroll = true;
             requestAnimationFrame(() => {
                 chatMessages.scrollTop = chatMessages.scrollHeight;
+                // Libera o flag após o browser processar o scroll
+                requestAnimationFrame(() => { isProgrammaticScroll = false; });
             });
         }
     }
 
-    // Botão flutuante para voltar ao final
+    // Botão flutuante para voltar ao final (44px+ para touch)
     function showScrollDownBtn(visible) {
         let btn = document.getElementById('scrollDownBtn');
         if (!btn) {
             btn = document.createElement('button');
             btn.id = 'scrollDownBtn';
             btn.innerHTML = '<i class="bi bi-chevron-down"></i>';
-            btn.onclick = () => { scrollToBottom(true); };
+            btn.addEventListener('click', () => {
+                userHasScrolledUp = false;
+                scrollToBottom(true);
+                showScrollDownBtn(false);
+            });
             Object.assign(btn.style, {
                 position: 'absolute',
-                bottom: '80px',
-                right: '16px',
-                width: '38px',
-                height: '38px',
+                bottom: 'calc(70px + var(--safe-bottom))',
+                right: '12px',
+                width: '44px',
+                height: '44px',
                 borderRadius: '50%',
                 border: '1px solid rgba(196,99,42,0.3)',
                 background: 'rgba(30,22,20,0.95)',
@@ -680,8 +703,8 @@
                 justifyContent: 'center',
                 cursor: 'pointer',
                 zIndex: '20',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-                transition: 'opacity 0.2s',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
+                WebkitTapHighlightColor: 'transparent',
             });
             document.querySelector('.app-container').appendChild(btn);
         }
