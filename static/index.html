@@ -632,11 +632,60 @@
         }
     }
 
-    // ===== SCROLL TO BOTTOM =====
-    function scrollToBottom() {
-        requestAnimationFrame(() => {
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        });
+    // ===== SMART AUTO-SCROLL =====
+    let userHasScrolledUp = false;
+    const SCROLL_THRESHOLD = 150; // px de tolerância para considerar "perto do fundo"
+
+    // Detecta quando o usuário rola manualmente para cima
+    chatMessages.addEventListener('scroll', () => {
+        const distFromBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight;
+        if (distFromBottom > SCROLL_THRESHOLD) {
+            userHasScrolledUp = true;
+            showScrollDownBtn(true);
+        } else {
+            userHasScrolledUp = false;
+            showScrollDownBtn(false);
+        }
+    });
+
+    function scrollToBottom(force) {
+        if (force || !userHasScrolledUp) {
+            requestAnimationFrame(() => {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+        }
+    }
+
+    // Botão flutuante para voltar ao final
+    function showScrollDownBtn(visible) {
+        let btn = document.getElementById('scrollDownBtn');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'scrollDownBtn';
+            btn.innerHTML = '<i class="bi bi-chevron-down"></i>';
+            btn.onclick = () => { scrollToBottom(true); };
+            Object.assign(btn.style, {
+                position: 'absolute',
+                bottom: '80px',
+                right: '16px',
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                border: '1px solid rgba(196,99,42,0.3)',
+                background: 'rgba(30,22,20,0.95)',
+                color: '#fff',
+                fontSize: '18px',
+                display: 'none',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                zIndex: '20',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                transition: 'opacity 0.2s',
+            });
+            document.querySelector('.app-container').appendChild(btn);
+        }
+        btn.style.display = visible ? 'flex' : 'none';
     }
 
     // ===== TIME HELPER =====
@@ -828,6 +877,7 @@
 
         // Show user message
         addMessage(text, 'user');
+        userHasScrolledUp = false; // Reset: auto-scroll ativo para nova resposta
 
         // Show typing
         showTyping();
