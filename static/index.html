@@ -260,28 +260,28 @@
             background: linear-gradient(135deg, #1e1614 0%, #2a1f1a 100%);
             border: 1px solid var(--accent);
             border-radius: 16px;
-            padding: 16px;
-            margin-top: 10px;
-            max-width: 92%;
+            padding: 20px 16px;
+            margin: 12px 0 8px 0;
+            width: 100%;
             animation: msg-in 0.3s ease-out;
-            box-shadow: 0 0 20px rgba(196, 99, 42, 0.15);
+            box-shadow: 0 0 24px rgba(196, 99, 42, 0.2), 0 2px 8px rgba(0,0,0,0.3);
         }
 
         .order-card-header {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-            padding-bottom: 10px;
+            gap: 10px;
+            margin-bottom: 14px;
+            padding-bottom: 12px;
             border-bottom: 1px solid var(--border-warm);
         }
 
         .order-card-header .icon {
-            font-size: 20px;
+            font-size: 22px;
         }
 
         .order-card-header .title {
-            font-size: 15px;
+            font-size: 16px;
             font-weight: 600;
             color: var(--accent);
             letter-spacing: -0.2px;
@@ -290,20 +290,20 @@
         .order-items {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 10px;
+            margin-bottom: 14px;
         }
 
         .order-item {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 8px;
+            gap: 10px;
         }
 
         .order-item-left {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             flex: 1;
         }
 
@@ -311,7 +311,7 @@
             font-weight: 700;
             color: var(--accent);
             font-size: 15px;
-            min-width: 24px;
+            min-width: 28px;
         }
 
         .order-item-info {
@@ -319,7 +319,7 @@
         }
 
         .order-item-name {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 500;
             color: var(--text-primary);
             line-height: 1.3;
@@ -327,42 +327,52 @@
 
         .order-item-obs {
             font-size: 12px;
-            color: rgba(255,255,255,0.45);
-            margin-top: 2px;
+            color: #e8a76a;
+            margin-top: 4px;
             font-style: italic;
+            display: flex;
+            align-items: flex-start;
+            gap: 4px;
+            line-height: 1.4;
+            background: rgba(196, 99, 42, 0.08);
+            padding: 4px 8px;
+            border-radius: 6px;
+            border-left: 2px solid var(--accent);
         }
 
         .order-item-price {
-            font-size: 14px;
-            font-weight: 500;
-            color: rgba(255,255,255,0.7);
+            font-size: 15px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.75);
             white-space: nowrap;
         }
 
         .order-divider {
             height: 1px;
             background: var(--border-warm);
-            margin: 8px 0;
+            margin: 10px 0;
         }
 
         .order-totals {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
         }
 
         .order-total-row {
             display: flex;
             justify-content: space-between;
-            font-size: 13px;
+            font-size: 14px;
             color: rgba(255,255,255,0.55);
         }
 
         .order-total-row.final {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: 700;
             color: var(--text-primary);
-            margin-top: 4px;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid var(--border-warm);
         }
 
         .order-total-row.final .label {
@@ -566,10 +576,10 @@
             <h2>Assistente de Cardápio</h2>
             <p>Tire dúvidas sobre receitas, custos, fichas técnicas e planejamento do cardápio.</p>
             <div class="suggestions">
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Sugira pratos novos para o almoço</div>
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Calcule o custo de um prato</div>
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Mostre a foto do filé grelhado</div>
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Monte um cardápio semanal</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Lançamento de novos pratos</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos com camarão</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Entradas</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos promocionais</div>
             </div>
         </div>
     </div>
@@ -677,15 +687,20 @@
             const order = JSON.parse(jsonStr);
             if (!order.items || !order.items.length) return null;
 
+            const customizedCount = order.items.filter(i => i.observacao && i.observacao.trim()).length;
+
             const itemsHtml = order.items.map(item => {
                 const subtotal = (item.quantidade * item.preco_unitario).toFixed(2);
+                const obsHtml = item.observacao && item.observacao.trim()
+                    ? `<div class="order-item-obs">✏️ ${item.observacao}</div>`
+                    : '';
                 return `
                     <div class="order-item">
                         <div class="order-item-left">
                             <span class="order-item-qty">${item.quantidade}×</span>
                             <div class="order-item-info">
                                 <div class="order-item-name">${item.nome}</div>
-                                ${item.observacao ? `<div class="order-item-obs">${item.observacao}</div>` : ''}
+                                ${obsHtml}
                             </div>
                         </div>
                         <span class="order-item-price">R$ ${Number(subtotal).toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
@@ -695,12 +710,17 @@
             const total = Number(order.total_estimado || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
             const totalServico = Number(order.total_com_servico || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
 
+            const badgeHtml = customizedCount > 0
+                ? `<span style="font-size:11px;color:rgba(255,255,255,0.5);margin-left:auto;">${customizedCount} personalizado${customizedCount > 1 ? 's' : ''}</span>`
+                : '';
+
             const card = document.createElement('div');
             card.className = 'order-card';
             card.innerHTML = `
                 <div class="order-card-header">
                     <span class="icon">🧾</span>
                     <span class="title">Resumo do Pedido</span>
+                    ${badgeHtml}
                 </div>
                 <div class="order-items">${itemsHtml}</div>
                 <div class="order-divider"></div>
@@ -863,8 +883,8 @@
                                 if (orderJson) {
                                     const card = renderOrderCard(orderJson);
                                     if (card) {
-                                        // Insere o card após o bubble da IA, dentro do mesmo msg-row
-                                        aiBubble.parentElement.appendChild(card);
+                                        // Insere o card como elemento independente no chat (full-width)
+                                        chatMessages.appendChild(card);
                                         orderCardInserted = true;
                                         scrollToBottom();
                                     }
@@ -882,7 +902,7 @@
                 if (orderJson) {
                     const card = renderOrderCard(orderJson);
                     if (card) {
-                        aiBubble.parentElement.appendChild(card);
+                        chatMessages.appendChild(card);
                         scrollToBottom();
                     }
                 }
