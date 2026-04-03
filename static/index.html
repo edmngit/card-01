@@ -255,6 +255,120 @@
             30% { transform: translateY(-6px); opacity: 1; }
         }
 
+        /* ===== ORDER CARD ===== */
+        .order-card {
+            background: linear-gradient(135deg, #1e1614 0%, #2a1f1a 100%);
+            border: 1px solid var(--accent);
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 10px;
+            max-width: 92%;
+            animation: msg-in 0.3s ease-out;
+            box-shadow: 0 0 20px rgba(196, 99, 42, 0.15);
+        }
+
+        .order-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-warm);
+        }
+
+        .order-card-header .icon {
+            font-size: 20px;
+        }
+
+        .order-card-header .title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--accent);
+            letter-spacing: -0.2px;
+        }
+
+        .order-items {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .order-item-left {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .order-item-qty {
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 15px;
+            min-width: 24px;
+        }
+
+        .order-item-info {
+            flex: 1;
+        }
+
+        .order-item-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            line-height: 1.3;
+        }
+
+        .order-item-obs {
+            font-size: 12px;
+            color: rgba(255,255,255,0.45);
+            margin-top: 2px;
+            font-style: italic;
+        }
+
+        .order-item-price {
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.7);
+            white-space: nowrap;
+        }
+
+        .order-divider {
+            height: 1px;
+            background: var(--border-warm);
+            margin: 8px 0;
+        }
+
+        .order-totals {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .order-total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: rgba(255,255,255,0.55);
+        }
+
+        .order-total-row.final {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-top: 4px;
+        }
+
+        .order-total-row.final .label {
+            color: var(--accent);
+        }
+
         /* Welcome state */
         .welcome {
             display: flex;
@@ -557,6 +671,80 @@
         return text;
     }
 
+    // ===== RENDERIZA CARD DE PEDIDO =====
+    function renderOrderCard(jsonStr) {
+        try {
+            const order = JSON.parse(jsonStr);
+            if (!order.items || !order.items.length) return null;
+
+            const itemsHtml = order.items.map(item => {
+                const subtotal = (item.quantidade * item.preco_unitario).toFixed(2);
+                return `
+                    <div class="order-item">
+                        <div class="order-item-left">
+                            <span class="order-item-qty">${item.quantidade}×</span>
+                            <div class="order-item-info">
+                                <div class="order-item-name">${item.nome}</div>
+                                ${item.observacao ? `<div class="order-item-obs">${item.observacao}</div>` : ''}
+                            </div>
+                        </div>
+                        <span class="order-item-price">R$ ${Number(subtotal).toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+                    </div>`;
+            }).join('');
+
+            const total = Number(order.total_estimado || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
+            const totalServico = Number(order.total_com_servico || 0).toLocaleString('pt-BR', {minimumFractionDigits:2});
+
+            const card = document.createElement('div');
+            card.className = 'order-card';
+            card.innerHTML = `
+                <div class="order-card-header">
+                    <span class="icon">🧾</span>
+                    <span class="title">Resumo do Pedido</span>
+                </div>
+                <div class="order-items">${itemsHtml}</div>
+                <div class="order-divider"></div>
+                <div class="order-totals">
+                    <div class="order-total-row">
+                        <span>Subtotal</span>
+                        <span>R$ ${total}</span>
+                    </div>
+                    <div class="order-total-row">
+                        <span>Taxa de serviço (10%)</span>
+                        <span>R$ ${Number(order.total_com_servico - order.total_estimado || 0).toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+                    </div>
+                    <div class="order-total-row final">
+                        <span class="label">Total</span>
+                        <span>R$ ${totalServico}</span>
+                    </div>
+                </div>`;
+            return card;
+        } catch (e) {
+            console.warn('Falha ao parsear ORDER_JSON:', e);
+            return null;
+        }
+    }
+
+    // ===== PROCESSA TEXTO COM ORDER_JSON =====
+    // Retorna { visibleText, orderJson } separando o bloco especial do texto normal
+    function extractOrderBlock(text) {
+        const openTag = '<<ORDER_JSON>>';
+        const closeTag = '<</ORDER_JSON>>';
+        const start = text.indexOf(openTag);
+        const end = text.indexOf(closeTag);
+
+        if (start === -1 || end === -1 || end <= start) {
+            return { visibleText: text, orderJson: null };
+        }
+
+        const before = text.slice(0, start).trim();
+        const jsonStr = text.slice(start + openTag.length, end).trim();
+        const after = text.slice(end + closeTag.length).trim();
+        const visibleText = [before, after].filter(Boolean).join('\n');
+
+        return { visibleText, orderJson: jsonStr };
+    }
+
     // ===== ADD MESSAGE BUBBLE =====
     function addMessage(text, role) {
         const ws = document.getElementById('welcomeScreen');
@@ -636,6 +824,7 @@
             // Create AI bubble for streaming
             const aiBubble = addMessage('', 'ai');
             let fullText = '';
+            let orderCardInserted = false;
 
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
@@ -656,13 +845,46 @@
                         const data = JSON.parse(raw);
                         if (data.type === 'delta') {
                             fullText += data.text;
-                            aiBubble.innerHTML = formatText(fullText);
+
+                            // Extrai o bloco de pedido se existir (mesmo parcialmente recebido)
+                            const { visibleText } = extractOrderBlock(fullText);
+                            aiBubble.innerHTML = formatText(visibleText);
                             scrollToBottom();
+
                         } else if (data.type === 'error') {
                             fullText = '⚠️ ' + data.text;
                             aiBubble.innerHTML = formatText(fullText);
+                        } else if (data.type === 'done') {
+                            // Stream finalizado — tenta inserir o card de pedido
+                            if (!orderCardInserted) {
+                                const { visibleText, orderJson } = extractOrderBlock(fullText);
+                                aiBubble.innerHTML = formatText(visibleText);
+
+                                if (orderJson) {
+                                    const card = renderOrderCard(orderJson);
+                                    if (card) {
+                                        // Insere o card após o bubble da IA, dentro do mesmo msg-row
+                                        aiBubble.parentElement.appendChild(card);
+                                        orderCardInserted = true;
+                                        scrollToBottom();
+                                    }
+                                }
+                            }
                         }
                     } catch {}
+                }
+            }
+
+            // Segurança: se o stream terminou sem evento 'done', tenta o card assim mesmo
+            if (!orderCardInserted) {
+                const { visibleText, orderJson } = extractOrderBlock(fullText);
+                aiBubble.innerHTML = formatText(visibleText);
+                if (orderJson) {
+                    const card = renderOrderCard(orderJson);
+                    if (card) {
+                        aiBubble.parentElement.appendChild(card);
+                        scrollToBottom();
+                    }
                 }
             }
 
