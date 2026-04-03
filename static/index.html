@@ -213,6 +213,27 @@
             padding: 0;
         }
 
+        /* ===== IMAGENS DOS PRATOS ===== */
+        .dish-image {
+            width: 100%;
+            max-width: 280px;
+            border-radius: 12px;
+            margin: 8px 0 4px 0;
+            display: block;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .dish-image:active {
+            transform: scale(0.97);
+        }
+
+        .dish-caption {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 2px;
+        }
+
         /* Typing indicator */
         .typing-indicator {
             display: flex;
@@ -368,6 +389,43 @@
         }
         .msg-row.user .msg-time { text-align: right; }
         .msg-row.ai .msg-time { text-align: left; }
+
+        /* ===== OVERLAY FULLSCREEN ===== */
+        .img-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .img-overlay.active {
+            display: flex;
+        }
+        .img-overlay img {
+            max-width: 95%;
+            max-height: 90%;
+            border-radius: 12px;
+            object-fit: contain;
+        }
+        .img-overlay .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: #fff;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -394,10 +452,10 @@
             <h2>Assistente de Cardápio</h2>
             <p>Tire dúvidas sobre receitas, custos, fichas técnicas e planejamento do cardápio.</p>
             <div class="suggestions">
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Sugira lançamentos</div>
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos com camarão</div>
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Entradas</div>
-                <div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos promocionais</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Sugira pratos novos para o almoço</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Calcule o custo de um prato</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Mostre a foto do filé grelhado</div>
+                <div class="suggestion-chip" onclick="sendSuggestion(this)">Monte um cardápio semanal</div>
             </div>
         </div>
     </div>
@@ -419,6 +477,12 @@
     </div>
 </div>
 
+<!-- OVERLAY FULLSCREEN PARA IMAGENS -->
+<div class="img-overlay" id="imgOverlay" onclick="closeOverlay(event)">
+    <button class="close-btn" onclick="closeOverlay(event)"><i class="bi bi-x"></i></button>
+    <img id="overlayImg" src="" alt="">
+</div>
+
 <script>
     // ===== STATE =====
     const sessionId = crypto.randomUUID();
@@ -428,7 +492,6 @@
     const chatMessages = document.getElementById('chatMessages');
     const msgInput = document.getElementById('msgInput');
     const btnSend = document.getElementById('btnSend');
-    const welcomeScreen = document.getElementById('welcomeScreen');
 
     // ===== AUTO-RESIZE TEXTAREA =====
     function autoResize(el) {
@@ -455,6 +518,43 @@
     // ===== TIME HELPER =====
     function getTime() {
         return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ===== OVERLAY FULLSCREEN =====
+    function openOverlay(src) {
+        document.getElementById('overlayImg').src = src;
+        document.getElementById('imgOverlay').classList.add('active');
+    }
+
+    function closeOverlay(e) {
+        if (e) e.stopPropagation();
+        document.getElementById('imgOverlay').classList.remove('active');
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeOverlay();
+    });
+
+    // ===== BASIC MARKDOWN + DETECÇÃO DE [FOTO:arquivo] =====
+    function formatText(text) {
+        // Primeiro: substitui marcadores [FOTO:nome-arquivo.ext] por imagens
+        text = text.replace(
+            /\[FOTO:([^\]]+)\]/g,
+            (match, filename) => {
+                const src = `/static/pratos/${filename.trim()}`;
+                return `<img src="${src}" alt="Foto do prato" class="dish-image" onclick="openOverlay('${src}')" onerror="this.style.display='none'"><div class="dish-caption">Toque na imagem para ampliar</div>`;
+            }
+        );
+
+        // Depois: markdown normal
+        text = text
+            .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/\n/g, '<br>');
+
+        return text;
     }
 
     // ===== ADD MESSAGE BUBBLE =====
@@ -505,16 +605,6 @@
     function removeTyping() {
         const el = document.getElementById('typingRow');
         if (el) el.remove();
-    }
-
-    // ===== BASIC MARKDOWN =====
-    function formatText(text) {
-        return text
-            .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-            .replace(/`([^`]+)`/g, '<code>$1</code>')
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.+?)\*/g, '<em>$1</em>')
-            .replace(/\n/g, '<br>');
     }
 
     // ===== SEND MESSAGE =====
@@ -610,7 +700,7 @@
                 <div class="suggestions">
                     <div class="suggestion-chip" onclick="sendSuggestion(this)">Sugira pratos novos para o almoço</div>
                     <div class="suggestion-chip" onclick="sendSuggestion(this)">Calcule o custo de um prato</div>
-                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Crie uma ficha técnica</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Mostre a foto do filé grelhado</div>
                     <div class="suggestion-chip" onclick="sendSuggestion(this)">Monte um cardápio semanal</div>
                 </div>
             </div>`;
