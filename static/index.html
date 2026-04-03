@@ -236,26 +236,25 @@
         /* Typing indicator */
         .typing-indicator {
             display: flex;
-            gap: 5px;
+            gap: 6px;
             padding: 6px 4px;
             align-items: center;
-            min-height: 24px;
+            height: 28px;
         }
         .typing-indicator span {
+            display: block;
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            background: var(--accent);
-            opacity: 0.5;
-            animation: typing-bounce 1.4s infinite;
-            flex-shrink: 0;
+            background: #c4632a;
+            animation: typing-bounce 1.4s ease-in-out infinite both;
         }
         .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
         .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
         @keyframes typing-bounce {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-            30% { transform: translateY(-6px); opacity: 1; }
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-8px); opacity: 1; }
         }
 
         /* ===== ORDER CARD ===== */
@@ -636,55 +635,48 @@
     }
 
     // ===== SMART AUTO-SCROLL =====
-    let userHasScrolledUp = false;
-    let isProgrammaticScroll = false;
-    const SCROLL_THRESHOLD = 150;
+    // Abordagem simples: touchstart = usuário quer controlar, auto-scroll para.
+    // Volta apenas se o usuário scrollar de volta ao fundo ou clicar no botão.
+    let autoScrollEnabled = true;
 
-    // Detecta toque do usuário (touch ou mouse wheel) para distinguir de scroll programático
-    let userIsTouching = false;
-    chatMessages.addEventListener('touchstart', () => { userIsTouching = true; }, { passive: true });
-    chatMessages.addEventListener('touchend', () => {
-        // Delay para capturar o scroll inercial pós-toque
-        setTimeout(() => { userIsTouching = false; }, 800);
+    // Quando o dedo toca a tela, para o auto-scroll imediatamente
+    chatMessages.addEventListener('touchstart', () => {
+        autoScrollEnabled = false;
+        showScrollDownBtn(true);
     }, { passive: true });
-    chatMessages.addEventListener('wheel', () => { userIsTouching = true; setTimeout(() => { userIsTouching = false; }, 300); }, { passive: true });
 
+    // Mouse wheel para desktop
+    chatMessages.addEventListener('wheel', () => {
+        autoScrollEnabled = false;
+        showScrollDownBtn(true);
+    }, { passive: true });
+
+    // Quando o scroll chega perto do fundo (por qualquer motivo), reativa
     chatMessages.addEventListener('scroll', () => {
-        // Ignora eventos de scroll causados pelo próprio código
-        if (isProgrammaticScroll) return;
-
         const distFromBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight;
-
-        if (distFromBottom > SCROLL_THRESHOLD && userIsTouching) {
-            userHasScrolledUp = true;
-            showScrollDownBtn(true);
-        } else if (distFromBottom <= SCROLL_THRESHOLD) {
-            userHasScrolledUp = false;
+        if (distFromBottom < 30) {
+            autoScrollEnabled = true;
             showScrollDownBtn(false);
         }
     }, { passive: true });
 
     function scrollToBottom(force) {
-        if (force || !userHasScrolledUp) {
-            isProgrammaticScroll = true;
-            requestAnimationFrame(() => {
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-                // Libera o flag após o browser processar o scroll
-                requestAnimationFrame(() => { isProgrammaticScroll = false; });
-            });
+        if (force || autoScrollEnabled) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
     }
 
-    // Botão flutuante para voltar ao final (44px+ para touch)
+    // Botão flutuante para voltar ao final (44px para touch)
     function showScrollDownBtn(visible) {
         let btn = document.getElementById('scrollDownBtn');
         if (!btn) {
             btn = document.createElement('button');
             btn.id = 'scrollDownBtn';
             btn.innerHTML = '<i class="bi bi-chevron-down"></i>';
-            btn.addEventListener('click', () => {
-                userHasScrolledUp = false;
-                scrollToBottom(true);
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                autoScrollEnabled = true;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
                 showScrollDownBtn(false);
             });
             Object.assign(btn.style, {
@@ -862,6 +854,8 @@
     }
 
     // ===== TYPING INDICATOR =====
+    let typingShownAt = 0;
+
     function showTyping() {
         const ws = document.getElementById('welcomeScreen');
         if (ws) ws.remove();
@@ -872,19 +866,33 @@
 
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble';
-        bubble.innerHTML = `
-            <div class="typing-indicator">
-                <span></span><span></span><span></span>
-            </div>`;
 
+        const indicator = document.createElement('div');
+        indicator.className = 'typing-indicator';
+        for (let i = 0; i < 3; i++) {
+            indicator.appendChild(document.createElement('span'));
+        }
+        bubble.appendChild(indicator);
         row.appendChild(bubble);
         chatMessages.appendChild(row);
-        scrollToBottom();
+
+        typingShownAt = Date.now();
+        scrollToBottom(true);
     }
 
+    // Garante que o typing fique visível por pelo menos 600ms
     function removeTyping() {
-        const el = document.getElementById('typingRow');
-        if (el) el.remove();
+        return new Promise(resolve => {
+            const elapsed = Date.now() - typingShownAt;
+            const minTime = 600;
+            const wait = Math.max(0, minTime - elapsed);
+
+            setTimeout(() => {
+                const el = document.getElementById('typingRow');
+                if (el) el.remove();
+                resolve();
+            }, wait);
+        });
     }
 
     // ===== SEND MESSAGE =====
@@ -900,7 +908,8 @@
 
         // Show user message
         addMessage(text, 'user');
-        userHasScrolledUp = false; // Reset: auto-scroll ativo para nova resposta
+        autoScrollEnabled = true; // Reset: auto-scroll ativo para nova resposta
+        showScrollDownBtn(false);
 
         // Show typing
         showTyping();
@@ -912,7 +921,7 @@
                 body: JSON.stringify({ message: text, session_id: sessionId }),
             });
 
-            removeTyping();
+            await removeTyping();
 
             // Create AI bubble for streaming
             const aiBubble = addMessage('', 'ai');
@@ -982,7 +991,7 @@
             }
 
         } catch (err) {
-            removeTyping();
+            await removeTyping();
             addMessage('⚠️ Erro de conexão. Tente novamente.', 'ai');
         }
 
