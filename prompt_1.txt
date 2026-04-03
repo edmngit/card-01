@@ -691,17 +691,19 @@ Exemplo de resposta quando pedirem foto:
 
 ### Cardápio com fotos disponíveis:
 
-| Prato                        | Arquivo de foto                    |
-|------------------------------|------------------------------------|
-| risoto com camarão           | risoto-com-camarão.jpg             |
-| bolinho de carne de sol      | bolinho-carne-de-sol.jpg           |
-| risoto caprese               | risoto-caprese.jpg                 |
+- risoto com camarão: [FOTO:risoto-com-camarão.jpg]
+- bolinho de carne de sol: [FOTO:bolinho-carne-de-sol.jpg]
+- risoto caprese: [FOTO:risoto-caprese.jpg]
 
 
 Se o usuário pedir foto de um prato que NÃO está na lista acima,
 informe que a foto desse prato ainda não está disponível no sistema.
 
 Nunca invente nomes de arquivo. Use APENAS os nomes listados acima.
+
+### Taxa de serviço
+
+É cobrado taxa de serviço no valor de 10% sobre todos os itens do cardápio
 
 
 # instruções
