@@ -1,5 +1,5 @@
 """
-FastAPI Backend - Chat com OpenAI
+FastAPI Backend - Chat com OpenAI + Fotos de Pratos via System Prompt
 """
 import pathlib
 from fastapi import FastAPI
@@ -25,19 +25,18 @@ app.add_middleware(
 )
 
 
-load_dotenv(".secret-env")
+load_dotenv(BASE_DIR / ".secret-env")
 api_key = os.getenv("key")
 
 if not api_key:
-    raise ValueError("API key not found. Make sure 'key' is set in your .secret_env file.")
+    raise ValueError("API key not found. Make sure 'key' is set in your .secret-env file.")
 
 
 # --- Configuração ---
-API_KEY = os.getenv("key")
 MODEL = "gpt-5-mini"
 SYSTEM_PROMPT_FILE = BASE_DIR / "prompt_1.txt"
 
-client = OpenAI(api_key=API_KEY)
+client = OpenAI(api_key=api_key)
 
 
 def load_system_prompt():
@@ -57,7 +56,7 @@ def load_system_prompt():
 
 SYSTEM_PROMPT = load_system_prompt()
 
-# Armazena previous_response_id por sessão (em produção, usar Redis/DB)
+# Armazena previous_response_id por sessão
 conversations: dict[str, str | None] = {}
 
 
@@ -159,15 +158,21 @@ async def clear_session(req: ChatRequest):
     return {"status": "ok"}
 
 
-# --- Monta arquivos estáticos (cria pasta se não existir) ---
+# --- Monta arquivos estáticos (cria pastas se não existirem) ---
 static_dir = BASE_DIR / "static"
 if not static_dir.exists():
     static_dir.mkdir(parents=True)
     print(f"📁 Pasta criada: {static_dir}")
 
+pratos_dir = static_dir / "pratos"
+if not pratos_dir.exists():
+    pratos_dir.mkdir(parents=True)
+    print(f"📁 Pasta criada: {pratos_dir}")
+
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 print(f"📂 Base dir: {BASE_DIR}")
 print(f"📂 Static dir: {static_dir}")
+print(f"🍽️ Pratos dir: {pratos_dir}")
 print(f"🤖 Modelo: {MODEL}")
 print(f"📝 System prompt: {len(SYSTEM_PROMPT)} caracteres")
