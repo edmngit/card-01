@@ -169,6 +169,13 @@
         .btn-send:disabled { background: rgba(255,255,255,.06); color: var(--text-secondary); cursor: not-allowed; }
         .btn-send:not(:disabled):active { transform: scale(.92); }
 
+        /* ===== MIC BUTTON ===== */
+        .btn-mic { width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,.06); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all .2s; font-size: 18px; }
+        .btn-mic:active { transform: scale(.92); }
+        .btn-mic.listening { background: var(--red); color: #fff; animation: mic-pulse 1.2s ease-in-out infinite; }
+        .btn-mic.unsupported { display: none; }
+        @keyframes mic-pulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(239,68,68,.4); } 50%{ box-shadow: 0 0 0 10px rgba(239,68,68,0); } }
+
         /* ===== OVERLAY ===== */
         .img-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 1000; align-items: center; justify-content: center; cursor: pointer; }
         .img-overlay.active { display: flex; }
@@ -372,6 +379,7 @@
         <div class="chat-input-area">
             <div class="input-wrapper">
                 <textarea id="msgInput" rows="1" placeholder="Pergunte sobre cardápio, receitas, custos..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                <button class="btn-mic" id="btnMic" onclick="toggleVoice()" title="Falar"><i class="bi bi-mic-fill"></i></button>
                 <button class="btn-send" id="btnSend" onclick="sendMessage()" disabled><i class="bi bi-arrow-up"></i></button>
             </div>
         </div>
@@ -710,6 +718,85 @@
         chatMessages.innerHTML = `<div class="welcome" id="welcomeScreen"><img src="/static/Logo-Divina3.png" alt="Divina Comida" class="welcome-logo"><h2>Assistente de Cardápio</h2><p>Tire dúvidas sobre receitas, custos, fichas técnicas e planejamento do cardápio.</p><div class="suggestions"><div class="suggestion-chip" onclick="sendSuggestion(this)">Lançamento de novos pratos</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos com camarão</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Entradas</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos promocionais</div></div></div>`;
     }
     msgInput.addEventListener('input', () => { btnSend.disabled = !msgInput.value.trim() || isStreaming; });
+
+    // ========================================================
+    //  VOICE INPUT (Web Speech API)
+    // ========================================================
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const btnMic = document.getElementById('btnMic');
+    let recognition = null;
+    let isListening = false;
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'pt-BR';
+        recognition.continuous = false;
+        recognition.interimResults = true;
+
+        recognition.onstart = () => {
+            isListening = true;
+            btnMic.classList.add('listening');
+            btnMic.title = 'Parar de ouvir';
+            msgInput.placeholder = '🎙️ Ouvindo...';
+        };
+
+        recognition.onresult = (e) => {
+            let interim = '';
+            let final = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+                const transcript = e.results[i][0].transcript;
+                if (e.results[i].isFinal) {
+                    final += transcript;
+                } else {
+                    interim += transcript;
+                }
+            }
+            if (final) {
+                // Append to existing text (user might have typed something already)
+                const current = msgInput.value;
+                msgInput.value = current ? current + ' ' + final : final;
+                btnSend.disabled = false;
+            } else if (interim) {
+                // Show interim as placeholder feedback
+                msgInput.placeholder = interim;
+            }
+        };
+
+        recognition.onend = () => {
+            isListening = false;
+            btnMic.classList.remove('listening');
+            btnMic.title = 'Falar';
+            msgInput.placeholder = 'Pergunte sobre cardápio, receitas, custos...';
+            // Auto-send if we got text and user isn't still typing
+            if (msgInput.value.trim()) {
+                btnSend.disabled = false;
+            }
+        };
+
+        recognition.onerror = (e) => {
+            isListening = false;
+            btnMic.classList.remove('listening');
+            btnMic.title = 'Falar';
+            msgInput.placeholder = 'Pergunte sobre cardápio, receitas, custos...';
+            if (e.error === 'not-allowed') {
+                // Brief feedback that mic was denied
+                msgInput.placeholder = '⚠️ Permissão do microfone negada';
+                setTimeout(() => { msgInput.placeholder = 'Pergunte sobre cardápio, receitas, custos...'; }, 3000);
+            }
+        };
+    } else {
+        // Browser doesn't support Speech Recognition
+        btnMic.classList.add('unsupported');
+    }
+
+    function toggleVoice() {
+        if (!recognition || isStreaming) return;
+        if (isListening) {
+            recognition.stop();
+        } else {
+            recognition.start();
+        }
+    }
 
     // ========================================================
     //  CLIENT ORDERS
