@@ -3,5 +3,5 @@ uvicorn[standard]
 openai==1.82.0
 python-multipart==0.0.9
 python-dotenv==1.1.0
-SQLAlchemy==2.0.30
-psycopg2-binary==2.9.10
+SQLAlchemy
+psycopg2-binary
