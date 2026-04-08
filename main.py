@@ -59,6 +59,14 @@ async def debug_db():
         res = conn.execute(text("SELECT COUNT(*) FROM mensagem_chat")).fetchone()
         return {"total_mensagens_no_banco": res[0]}
 
+@app.get("/api/debug/db-name")
+async def debug_db_name():
+    from sqlalchemy import text
+    with db.get_engine().connect() as conn:
+        # Este comando pergunta ao banco de dados: "Em qual banco estou agora?"
+        res = conn.execute(text("SELECT current_database()")).fetchone()
+        return {"banco_conectado_atualmente": res[0]}
+
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
     # Salva a mensagem do usuário no banco de dados
