@@ -1,5 +1,6 @@
 import pathlib
 import os
+import json
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,16 +9,17 @@ from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# Importar o seu banco de dados corrigido
+# Importar o seu banco de dados
 import db
 
 # --- Inicialização Global ---
 BASE_DIR = pathlib.Path(__file__).parent
+# Carrega as variáveis de ambiente do arquivo .secret-env
 load_dotenv(BASE_DIR / ".secret-env")
 
 app = FastAPI()
 
-# Inicializa banco de dados
+# Inicializa banco de dados conectando ao PostgreSQL e criando tabelas
 db.init_db(str(BASE_DIR))
 
 # --- Middlewares ---
@@ -29,8 +31,9 @@ app.add_middleware(
 )
 
 # --- Configuração OpenAI ---
-# Alterado para um modelo existente (gpt-4o-mini)
+# Modelo definido como gpt-4o-mini
 MODEL = "gpt-4o-mini" 
+# A chave da API é lida da variável 'key' no arquivo .secret-env
 client = OpenAI(api_key=os.getenv("key"))
 
 class ChatRequest(BaseModel):
@@ -41,10 +44,8 @@ class ChatRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    # CORREÇÃO: Apontando para static/index.html como você mencionou
+    # Tenta localizar o index.html na pasta static ou na raiz
     html_path = BASE_DIR / "static" / "index.html"
-    
-    # Caso o arquivo não esteja dentro de static, tenta na raiz por segurança
     if not html_path.exists():
         html_path = BASE_DIR / "index.html"
         
@@ -53,17 +54,20 @@ async def index():
 
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
+    # Salva a mensagem do usuário no banco de dados
     db.salvar_mensagem(req.session_id, "user", req.message)
 
     def generate():
         full_response = ""
         try:
+            # Tenta carregar o prompt de sistema de um arquivo externo
             try:
                 with open(BASE_DIR / "prompt_1.txt", "r", encoding="utf-8") as f:
                     system_prompt = f.read()
             except:
-                system_prompt = "Você é um assistente prestativo."
+                system_prompt = "Você é um assistente prestativo da Divina Comida."
             
+            # Inicia a chamada ao modelo com streaming habilitado
             stream = client.chat.completions.create(
                 model=MODEL,
                 messages=[
@@ -72,18 +76,36 @@ async def chat_stream(req: ChatRequest):
                 ],
                 stream=True,
             )
+            
             for chunk in stream:
                 content = chunk.choices[0].delta.content
                 if content:
                     full_response += content
-                    yield content
+                    # Formata o chunk como JSON dentro do padrão SSE para o index.html ler
+                    data = json.dumps({"type": "delta", "text": content})
+                    yield f"data: {data}\n\n"
 
+            # Salva a resposta completa do assistente no banco
             db.salvar_mensagem(req.session_id, "assistant", full_response)
+            
+            # Envia o sinal de finalização esperado pelo frontend
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except Exception as e:
-            yield f"Erro: {str(e)}"
+            # Envia erro formatado para o frontend
+            error_msg = json.dumps({"type": "error", "text": str(e)})
+            yield f"data: {error_msg}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+# Rota para limpar o histórico da sessão (chamada pelo botão de lixeira no index.html)
+@app.post("/api/clear")
+async def clear_session(req: dict):
+    session_id = req.get("session_id")
+    if session_id:
+        # Aqui você pode implementar a limpeza lógica no banco se desejar
+        print(f"Solicitação de limpeza para a sessão: {session_id}")
+    return {"status": "ok"}
 
 # --- Arquivos Estáticos ---
 static_path = BASE_DIR / "static"
@@ -92,7 +114,7 @@ if not static_path.exists():
 
 app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
-# CORREÇÃO: Removido o erro de sintaxe no final (080)
 if __name__ == "__main__":
     import uvicorn
+    # Servidor rodando na porta 8080
     uvicorn.run(app, host="0.0.0.0", port=8080)
