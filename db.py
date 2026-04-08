@@ -35,32 +35,32 @@ def init_db(base_dir: str):
         print("✅ [DB SUCCESS] Conectado ao PostgreSQL com sucesso.")
         
         # Criação das tabelas se não existirem
-        criar_tabelas()
+    #    criar_tabelas()
         
     except Exception as e:
         _DB_ENABLED = False
         print(f"❌ [DB CRITICAL ERROR] Falha ao conectar/inicializar: {e}")
 
-def criar_tabelas():
-    if not _ENGINE: return
-    with _ENGINE.begin() as conn:
-        conn.execute(text("CREATE SCHEMA IF NOT EXISTS iasrc;"))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS iasrc.sessao_chat (
-                id SERIAL PRIMARY KEY,
-                session_id TEXT UNIQUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS iasrc.mensagem_chat (
-                id SERIAL PRIMARY KEY,
-                sessao_id INTEGER REFERENCES iasrc.sessao_chat(id),
-                role TEXT,
-                conteudo TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """))
+# def criar_tabelas():
+#     if not _ENGINE: return
+#     with _ENGINE.begin() as conn:
+#         conn.execute(text("CREATE SCHEMA IF NOT EXISTS iasrc;"))
+#         conn.execute(text("""
+#             CREATE TABLE IF NOT EXISTS iasrc.sessao_chat (
+#                 id SERIAL PRIMARY KEY,
+#                 session_id TEXT UNIQUE,
+#                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+#             );
+#         """))
+#         conn.execute(text("""
+#             CREATE TABLE IF NOT EXISTS iasrc.mensagem_chat (
+#                 id SERIAL PRIMARY KEY,
+#                 sessao_id INTEGER REFERENCES iasrc.sessao_chat(id),
+#                 role TEXT,
+#                 conteudo TEXT,
+#                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+#             );
+#         """))
 
 def salvar_mensagem(session_id: str, role: str, conteudo: str):
     if not _DB_ENABLED or not _ENGINE:
