@@ -52,6 +52,13 @@ async def index():
     with open(html_path, "r", encoding="utf-8") as f:
         return f.read()
 
+@app.get("/api/debug/db")
+async def debug_db():
+    from sqlalchemy import text
+    with db.get_engine().connect() as conn:
+        res = conn.execute(text("SELECT COUNT(*) FROM mensagem_chat")).fetchone()
+        return {"total_mensagens_no_banco": res[0]}
+
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
     # Salva a mensagem do usuário no banco de dados
