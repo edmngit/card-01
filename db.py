@@ -105,7 +105,7 @@ def salvar_mensagem(session_id: str, role: str, conteudo: str):
                     text("INSERT INTO mensagem_chat (sessao_id, role, conteudo) VALUES (:sid, :r, :c)"),
                     {"sid": id_interno, "r": role, "c": conteudo}
                 )
-                # 4. Força a gravação no disco
+                # 4. Força a gravação no
                 conn.commit()
                 print(f"💾 [DB] Mensagem de '{role}' gravada com sucesso!")
             else:
