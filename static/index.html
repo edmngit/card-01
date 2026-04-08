@@ -16,9 +16,7 @@
     <style>
         :root {
             --primary-color: #8B0000;
-            /* Dark Red */
             --secondary-color: #FFD700;
-            /* Gold */
             --bg-color: #fdfdfd;
             --chat-bg: #fff;
             --user-msg-bg: #8B0000;
@@ -55,15 +53,21 @@
         .header-logo {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
-        .header-logo img {
-            height: 40px;
-            width: 40px;
+        /* Substituição do Logo por Ícone */
+        .logo-replacement {
+            width: 45px;
+            height: 45px;
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
             border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--secondary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            border: 2px solid white;
         }
 
         .header-title {
@@ -72,6 +76,7 @@
             font-weight: 700;
             margin: 0;
             color: var(--secondary-color);
+            line-height: 1;
         }
 
         .header-subtitle {
@@ -93,23 +98,20 @@
             color: var(--secondary-color);
         }
 
-
         /* --- Main Chat Container --- */
         .chat-main-container {
             flex: 1;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            /* Prevent body scroll */
             position: relative;
         }
 
-        /* --- Welcome Area / Carousel --- */
+        /* --- Welcome Area / Placeholder para Carrossel --- */
         #welcome-area {
             padding: 20px;
             text-align: center;
             flex-shrink: 0;
-            /* Don't compress */
         }
 
         .welcome-text {
@@ -119,45 +121,38 @@
             margin-bottom: 5px;
         }
 
-        .welcome-subtext {
-            color: #666;
-            margin-bottom: 20px;
-            font-size: 0.95rem;
+        /* Ajuste do Carrossel para usar Cores Sólidas em vez de Imagens */
+        .carousel-item {
+            height: 200px;
+            border-radius: 15px;
+            background-color: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
         }
 
-        /* Carousel Styling */
-        .carousel-item img {
-            height: 200px;
-            /* Base height for small screens */
-            object-fit: cover;
-            border-radius: 15px;
+        .carousel-placeholder-icon {
+            font-size: 4rem;
+            color: var(--primary-color);
+            opacity: 0.3;
+            margin-bottom: 10px;
         }
 
         .carousel-caption {
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(139, 0, 0, 0.85);
             border-radius: 0 0 15px 15px;
             padding: 10px;
+            position: absolute;
             bottom: 0;
+            width: 100%;
             left: 0;
-            right: 0;
         }
 
-        .carousel-caption h5 {
-            font-size: 1.1rem;
-            margin-bottom: 2px;
-        }
-
-        .carousel-caption p {
-            font-size: 0.8rem;
-            margin-bottom: 0;
-        }
-
-
-        /* --- Chat Window (Messages) --- */
+        /* --- Chat Window --- */
         #chat-window {
             flex: 1;
             overflow-y: auto;
-            /* Scrollable messages */
             padding: 20px;
             display: flex;
             flex-direction: column;
@@ -165,26 +160,6 @@
             background-color: var(--chat-bg);
         }
 
-        /* Scrollbar styling */
-        #chat-window::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        #chat-window::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-
-        #chat-window::-webkit-scrollbar-thumb {
-            background: #ccc;
-            border-radius: 3px;
-        }
-
-        #chat-window::-webkit-scrollbar-thumb:hover {
-            background: #aaa;
-        }
-
-
-        /* --- Messages Styling --- */
         .message {
             max-width: 80%;
             padding: 12px 16px;
@@ -212,15 +187,18 @@
             gap: 10px;
         }
 
-        .bot-avatar {
+        /* Avatar do Bot em CSS */
+        .bot-avatar-css {
             width: 30px;
             height: 30px;
+            background-color: var(--primary-color);
+            color: var(--secondary-color);
             border-radius: 50%;
-            object-fit: cover;
-            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             flex-shrink: 0;
-            margin-top: -5px;
-            /* adjust alignment */
+            font-size: 0.8rem;
         }
 
         .bot-message-content {
@@ -239,17 +217,11 @@
             color: #eee;
         }
 
-        .bot-message .message-time {
-            text-align: left;
-            color: #666;
-        }
-
         /* --- Input Area --- */
         .input-area {
             background-color: white;
             padding: 15px;
             border-top: 1px solid #eee;
-            flex-shrink: 0;
         }
 
         .input-group {
@@ -257,19 +229,12 @@
             border-radius: 30px;
             overflow: hidden;
             border: 1px solid #ddd;
-            transition: border-color 0.2s;
-        }
-
-        .input-group:focus-within {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(139, 0, 0, 0.1);
         }
 
         #userInput {
             border: none;
             background: transparent;
             padding: 12px 20px;
-            font-size: 1rem;
         }
 
         #userInput:focus {
@@ -283,43 +248,16 @@
             color: var(--primary-color);
             padding: 0 20px;
             font-size: 1.2rem;
-            cursor: pointer;
-            transition: transform 0.2s;
         }
 
-        #sendBtn:hover {
-            transform: scale(1.1);
-        }
-
-        #sendBtn:disabled {
-            color: #ccc;
-            cursor: not-allowed;
-        }
-
-        /* --- Loading Dot Animation --- */
-        .typing-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            min-height: 20px;
-        }
-
+        /* --- Loading Dots --- */
         .typing-indicator span {
             height: 6px;
             width: 6px;
             background-color: #aaa;
             border-radius: 50%;
-            display: block;
-            opacity: 0.4;
+            display: inline-block;
             animation: typing 1s infinite alternate;
-        }
-
-        .typing-indicator span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .typing-indicator span:nth-child(3) {
-            animation-delay: 0.4s;
         }
 
         @keyframes typing {
@@ -334,53 +272,18 @@
             }
         }
 
-
-        /* --- Media Queries (Responsividade) --- */
-        @media (min-width: 576px) {
-            .carousel-item img {
-                height: 250px;
-            }
-        }
-
+        /* --- Responsividade --- */
         @media (min-width: 768px) {
-            .chat-main-container {
-                max-width: 720px;
-                margin: 20px auto;
-                border-radius: 20px;
-                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-                border: 1px solid #eee;
-            }
 
-            #welcome-area {
-                padding: 30px;
-            }
-
-            .carousel-item img {
-                height: 300px;
-            }
-
+            .chat-main-container,
             .app-header {
                 max-width: 720px;
-                margin: 10px auto 0;
-                border-radius: 20px 20px 0 0;
+                margin: 10px auto;
+                border-radius: 15px;
             }
 
-            body {
-                background-color: #f0f2f5;
-            }
-        }
-
-        @media (min-width: 992px) {
-            .chat-main-container {
-                max-width: 850px;
-            }
-
-            .app-header {
-                max-width: 850px;
-            }
-
-            .carousel-item img {
-                height: 350px;
+            .carousel-item {
+                height: 250px;
             }
         }
     </style>
@@ -390,7 +293,9 @@
 
     <header class="app-header">
         <div class="header-logo">
-            <img src="/static/logo_divina.webp" alt="Divina Comida Logo">
+            <div class="logo-replacement">
+                <i class="bi bi-egg-fried"></i>
+            </div>
             <div>
                 <h1 class="header-title">Divina Comida</h1>
                 <p class="header-subtitle">Seu assistente gastronômico</p>
@@ -405,65 +310,49 @@
 
         <div id="welcome-area">
             <h2 class="welcome-text">Bem-vindo à Divina Comida!</h2>
-            <p class="welcome-subtext">Estou aqui para ajudar você a escolher o prato perfeito. Veja algumas de nossas
-                delícias:</p>
+            <p class="welcome-subtext">Estou aqui para ajudar você a escolher o prato perfeito.</p>
 
             <div id="foodCarousel" class="carousel slide" data-bs-ride="carousel">
-                <div class="carousel-indicators">
-                    <button type="button" data-bs-target="#foodCarousel" data-bs-slide-to="0" class="active"></button>
-                    <button type="button" data-bs-target="#foodCarousel" data-bs-slide-to="1"></button>
-                    <button type="button" data-bs-target="#foodCarousel" data-bs-slide-to="2"></button>
-                    <button type="button" data-bs-target="#foodCarousel" data-bs-slide-to="3"></button>
-                </div>
                 <div class="carousel-inner">
-                    <div class="carousel-item active" data-bs-interval="3000">
-                        <img src="/static/pratos/parmegiana.webp" class="d-block w-100" alt="Filé à Parmegiana">
+                    <div class="carousel-item active" style="background-color: #fff5f5;">
+                        <i class="bi bi-fire carousel-placeholder-icon"></i>
                         <div class="carousel-caption">
                             <h5>Filé à Parmegiana</h5>
                             <p>Clássico crocante com molho artesanal.</p>
                         </div>
                     </div>
-                    <div class="carousel-item" data-bs-interval="3000">
-                        <img src="/static/pratos/feijoada.webp" class="d-block w-100" alt="Feijoada Completa">
+                    <div class="carousel-item" style="background-color: #fff9e6;">
+                        <i class="bi bi-sun carousel-placeholder-icon"></i>
                         <div class="carousel-caption">
                             <h5>Feijoada Completa</h5>
                             <p>Todo sábado, aquela tradição brasileira.</p>
                         </div>
                     </div>
-                    <div class="carousel-item" data-bs-interval="3000">
-                        <img src="/static/pratos/salmão.webp" class="d-block w-100" alt="Salmão Grelhado">
+                    <div class="carousel-item" style="background-color: #f0f8ff;">
+                        <i class="bi bi-water carousel-placeholder-icon"></i>
                         <div class="carousel-caption">
                             <h5>Salmão Grelhado</h5>
                             <p>Leve e saboroso com legumes.</p>
                         </div>
                     </div>
-                    <div class="carousel-item" data-bs-interval="3000">
-                        <img src="/static/pratos/pudim.webp" class="d-block w-100" alt="Pudim de Leite">
-                        <div class="carousel-caption">
-                            <h5>Pudim de Leite</h5>
-                            <p>A sobremesa que abraça o coração.</p>
-                        </div>
-                    </div>
                 </div>
                 <button class="carousel-control-prev" type="button" data-bs-target="#foodCarousel" data-bs-slide="prev">
-                    <span class="carousel-control-prev-icon"></span>
+                    <span class="carousel-control-prev-icon" aria-hidden="true" style="filter: invert(1);"></span>
                 </button>
                 <button class="carousel-control-next" type="button" data-bs-target="#foodCarousel" data-bs-slide="next">
-                    <span class="carousel-control-next-icon"></span>
+                    <span class="carousel-control-next-icon" aria-hidden="true" style="filter: invert(1);"></span>
                 </button>
             </div>
 
-            <p class="mt-3 text-muted small">Digite abaixo para começar a conversar ou peça uma recomendação!</p>
+            <p class="mt-4 text-muted small">Diga "Olá" para começar!</p>
         </div>
 
-        <div id="chat-window" style="display: none;">
-        </div>
+        <div id="chat-window" style="display: none;"></div>
 
         <div class="input-area">
             <div class="input-group">
-                <input type="text" id="userInput" class="form-control"
-                    placeholder="Perunte sobre o cardápio, reservas..." aria-label="Mensagem">
-                <button id="sendBtn" title="Enviar">
+                <input type="text" id="userInput" class="form-control" placeholder="Pergunte sobre o cardápio...">
+                <button id="sendBtn">
                     <i class="bi bi-send-fill"></i>
                 </button>
             </div>
@@ -473,33 +362,21 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // ==============================================================================
-        // --- 1. LÓGICA DE SESSÃO PERSISTENTE (MODIFICAÇÃO PARA BANCO DE DADOS) ---
-        // ==============================================================================
-        // Verifica se já existe um ID de sessão no navegador. Se não, cria um novo.
-        let chatSessionId = localStorage.getItem('divina_chat_session_id');
-        if (!chatSessionId) {
-            chatSessionId = 'sess_' + Math.random().toString(36).substring(2, 11);
-            localStorage.setItem('divina_chat_session_id', chatSessionId);
-        }
-        console.log("Sessão Ativa Divina Comida:", chatSessionId);
-        // ==============================================================================
+        let chatSessionId = localStorage.getItem('divina_chat_session_id') || 'sess_' + Math.random().toString(36).substring(2, 11);
+        localStorage.setItem('divina_chat_session_id', chatSessionId);
 
-        // --- DOM Elements ---
         const welcomeArea = document.getElementById('welcome-area');
         const chatWindow = document.getElementById('chat-window');
         const userInput = document.getElementById('userInput');
         const sendBtn = document.getElementById('sendBtn');
         const clearChatBtn = document.getElementById('clearChatBtn');
 
-        let isChatActive = false; // Flag to know if we are in chat mode
+        let isChatActive = false;
 
-        // --- Helper: Get Current Time ---
         function getCurrentTime() {
             return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
-        // --- Helper: Append User Message ---
         function appendUserMessage(text) {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'message user-message';
@@ -508,116 +385,73 @@
             scrollToBottom();
         }
 
-        // --- Helper: Append Bot Message (with Avatar and Typing support) ---
         function appendBotMessage() {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'message bot-message';
 
-            // Avatar
-            const avatar = document.createElement('img');
-            avatar.src = '/static/logo_divina.webp'; // Use same logo
-            avatar.alt = 'Bot';
-            avatar.className = 'bot-avatar';
+            // Avatar CSS substituindo a imagem
+            const avatar = document.createElement('div');
+            avatar.className = 'bot-avatar-css';
+            avatar.innerHTML = '<i class="bi bi-robot"></i>';
             msgDiv.appendChild(avatar);
 
-            // Content Container
             const contentDiv = document.createElement('div');
             contentDiv.className = 'bot-message-content';
 
-            // Typing Indicator
             const typing = document.createElement('div');
             typing.className = 'typing-indicator';
-            typing.innerHTML = '<span></span><span></span><span></span>';
+            typing.innerHTML = '<span></span> <span></span> <span></span>';
             contentDiv.appendChild(typing);
 
             msgDiv.appendChild(contentDiv);
             chatWindow.appendChild(msgDiv);
             scrollToBottom();
 
-            // Return the content div so we can update it later
-            return {
-                messageDiv: msgDiv,
-                contentDiv: contentDiv,
-                typingIndicator: typing
-            };
+            return { messageDiv: msgDiv, contentDiv: contentDiv, typingIndicator: typing };
         }
 
-        // --- Helper: Update Bot Message Content and Add Time ---
-        function updateBotMessage(botMsgObj, text) {
-            // Remove typing indicator if still there
-            if (botMsgObj.typingIndicator && botMsgObj.typingIndicator.parentNode) {
-                botMsgObj.contentDiv.removeChild(botMsgObj.typingIndicator);
-                botMsgObj.typingIndicator = null; // Prevent double removal
-            }
+        function scrollToBottom() { chatWindow.scrollTop = chatWindow.scrollHeight; }
 
-            botMsgObj.contentDiv.innerHTML = text; // Update Text
-
-            // Add Time
-            const timeSpan = document.createElement('span');
-            timeSpan.className = 'message-time';
-            timeSpan.innerText = getCurrentTime();
-            botMsgObj.contentDiv.appendChild(timeSpan);
-
-            scrollToBottom();
-        }
-
-        // --- Helper: Scroll chat to bottom ---
-        function scrollToBottom() {
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
-
-        // --- Helper: Activate Chat Mode (hide welcome) ---
         function activateChatMode() {
             if (!isChatActive) {
                 welcomeArea.style.display = 'none';
                 chatWindow.style.display = 'flex';
                 isChatActive = true;
-                // Add initial brief welcome from bot if desired
                 const botObj = appendBotMessage();
-                setTimeout(() => updateBotMessage(botObj, "Olá! Como posso ajudar você com nosso cardápio hoje?"), 1000);
+                setTimeout(() => updateBotMessage(botObj, "Olá! Sou o assistente da Divina Comida. Como posso ajudar?"), 800);
             }
         }
 
+        function updateBotMessage(botMsgObj, text) {
+            if (botMsgObj.typingIndicator) botMsgObj.typingIndicator.remove();
+            botMsgObj.contentDiv.innerHTML = text + `<span class="message-time">${getCurrentTime()}</span>`;
+            scrollToBottom();
+        }
 
-        // ==============================================================================
-        // --- 2. ENVIO DE MENSAGEM (MODIFICAÇÃO PARA INCLUIR O session_id) ---
-        // ==============================================================================
         async function sendMessage() {
             const userText = userInput.value.trim();
             if (!userText) return;
 
-            // Switch to chat mode on first message
             activateChatMode();
-
-            // 1. Add User Message
             appendUserMessage(userText);
             userInput.value = '';
-            sendBtn.disabled = true; // Disable until bot starts streaming
+            sendBtn.disabled = true;
 
-            // 2. Add Bot Placeholder with Typing
             const botMsgObj = appendBotMessage();
             let fullAiResponse = "";
 
             try {
-                // ==============================================================
-                // --- INJEÇÃO DO session_id NA REQUISIÇÃO (STREAMING) ---
-                // ==============================================================
                 const response = await fetch("/api/chat/stream", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        message: userText,
-                        session_id: chatSessionId // <-- ID persistente enviado aqui
-                    }),
+                    body: JSON.stringify({ message: userText, session_id: chatSessionId }),
                 });
-                // ==============================================================
 
-                if (!response.ok) throw new Error("Falha na rede.");
+                if (!response.ok) throw new Error("Erro na conexão");
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
 
-                // Start processing stream
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
@@ -627,95 +461,48 @@
 
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
-                            const dataText = line.substring(6);
-
                             try {
-                                const data = JSON.parse(dataText);
-
+                                const data = JSON.parse(line.substring(6));
                                 if (data.type === 'delta') {
-                                    if (fullAiResponse === "") {
-                                        // On first actual text chunk, re-enable send and remove typing
-                                        sendBtn.disabled = false;
-                                        // Typing indicator is handled inside updateBotMessage
-                                    }
+                                    if (botMsgObj.typingIndicator) botMsgObj.typingIndicator.remove();
                                     fullAiResponse += data.text;
-                                    // Update bot message content incrementally
-                                    // updateBotMessage needs small adjustment to not add time every delta
-                                    botMsgObj.typingIndicator?.remove(); // remove typing on first delta
                                     botMsgObj.contentDiv.innerHTML = fullAiResponse;
                                     scrollToBottom();
                                 } else if (data.type === 'done') {
-                                    // Stream finished, add time now
                                     const timeSpan = document.createElement('span');
                                     timeSpan.className = 'message-time';
                                     timeSpan.innerText = getCurrentTime();
                                     botMsgObj.contentDiv.appendChild(timeSpan);
-                                    sendBtn.disabled = false; // re-enable if not already
-                                } else if (data.type === 'error') {
-                                    throw new Error(data.text);
+                                    sendBtn.disabled = false;
                                 }
-                            } catch (e) {
-                                console.error("Error parsing JSON chunk", e);
-                            }
+                            } catch (e) { }
                         }
                     }
                 }
-
             } catch (error) {
-                console.error("Chat Error:", error);
-                updateBotMessage(botMsgObj, `Desculpe, ocorreu um erro: ${error.message}. Por favor, tente novamente.`);
+                updateBotMessage(botMsgObj, "Ops, tive um problema técnico. Pode repetir?");
                 sendBtn.disabled = false;
             }
         }
-        // ==============================================================================
 
-
-        // ==============================================================================
-        // --- 3. LÓGICA DE LIMPAR CHAT (MODIFICAÇÃO PARA NOTIFICAR O BACKEND) ---
-        // ==============================================================================
         async function clearChat() {
-            // Volta para a tela de boas-vindas
             chatWindow.innerHTML = '';
             chatWindow.style.display = 'none';
             welcomeArea.style.display = 'block';
             isChatActive = false;
-            userInput.value = '';
-
-            // Notifica o backend para limpar o histórico da sessão na memória (cache da IA)
             try {
                 await fetch("/api/clear", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ session_id: chatSessionId }),
                 });
-                console.log("Contexto da sessão limpo no servidor.");
-            } catch (error) {
-                console.error("Erro ao limpar sessão no servidor:", error);
-            }
-
-            // OPCIONAL: Se você quiser que "Limpar Chat" gere um NOVO ID de sessão
-            // (começar um registro do zero no banco), descomente as linhas abaixo:
-            // chatSessionId = 'sess_' + Math.random().toString(36).substring(2, 11);
-            // localStorage.setItem('divina_chat_session_id', chatSessionId);
-            // console.log("Nova sessão gerada após limpeza:", chatSessionId);
+            } catch (error) { }
         }
-        // ==============================================================================
 
-
-        // --- Event Listeners ---
         sendBtn.addEventListener('click', sendMessage);
-
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
-
+        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
         clearChatBtn.addEventListener('click', clearChat);
-
-        // Optional: Auto-focus input on load
         window.addEventListener('load', () => userInput.focus());
-
     </script>
 </body>
 
