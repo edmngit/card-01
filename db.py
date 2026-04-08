@@ -11,7 +11,7 @@ _DB_ENABLED = False
 def init_db(base_dir: str):
     global _ENGINE, _DB_ENABLED
     
-_DB_ENABLED    # Garante que as variáveis de ambiente foram carregadas
+    _DB_ENABLED    # Garante que as variáveis de ambiente foram carregadas
     load_dotenv(os.path.join(base_dir, ".secret-env"))
     
     db_url = os.getenv("DATABASE_URL")
