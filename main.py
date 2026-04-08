@@ -11,11 +11,10 @@ from dotenv import load_dotenv
 # Importar o seu banco de dados corrigido
 import db
 
-# --- Inicialização Global (FORA de qualquer função ou IF) ---
+# --- Inicialização Global ---
 BASE_DIR = pathlib.Path(__file__).parent
 load_dotenv(BASE_DIR / ".secret-env")
 
-# O Uvicorn procura exatamente por esta variável "app"
 app = FastAPI()
 
 # Inicializa banco de dados
@@ -30,7 +29,8 @@ app.add_middleware(
 )
 
 # --- Configuração OpenAI ---
-MODEL = "gpt-5-mini"
+# Alterado para um modelo existente (gpt-4o-mini)
+MODEL = "gpt-4o-mini" 
 client = OpenAI(api_key=os.getenv("key"))
 
 class ChatRequest(BaseModel):
@@ -41,18 +41,23 @@ class ChatRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    with open(BASE_DIR / "index.html", "r", encoding="utf-8") as f:
+    # CORREÇÃO: Apontando para static/index.html como você mencionou
+    html_path = BASE_DIR / "static" / "index.html"
+    
+    # Caso o arquivo não esteja dentro de static, tenta na raiz por segurança
+    if not html_path.exists():
+        html_path = BASE_DIR / "index.html"
+        
+    with open(html_path, "r", encoding="utf-8") as f:
         return f.read()
 
 @app.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest):
-    # Salva no banco (agora no public)
     db.salvar_mensagem(req.session_id, "user", req.message)
 
     def generate():
         full_response = ""
         try:
-            # Tenta carregar o prompt do arquivo
             try:
                 with open(BASE_DIR / "prompt_1.txt", "r", encoding="utf-8") as f:
                     system_prompt = f.read()
@@ -81,19 +86,13 @@ async def chat_stream(req: ChatRequest):
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 # --- Arquivos Estáticos ---
-# Verifique se a pasta 'static' existe para não dar erro ao montar
 static_path = BASE_DIR / "static"
 if not static_path.exists():
     static_path.mkdir(parents=True)
 
 app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
-# O bloco abaixo é só para rodar LOCALMENTE. 
-# Na nuvem, o comando de inicialização deve ser: uvicorn main:app --host 0.0.0.0 --port 8080
-# ... (restante do código acima igual)
-
-# O bloco abaixo é só para rodar LOCALMENTE. 
+# CORREÇÃO: Removido o erro de sintaxe no final (080)
 if __name__ == "__main__":
     import uvicorn
-    # Corrigido: Removido o "080)" e o erro de digitação
     uvicorn.run(app, host="0.0.0.0", port=8080)
