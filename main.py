@@ -92,4 +92,4 @@ app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 # Na nuvem, o comando de inicialização deve ser: uvicorn main:app --host 0.0.0.0 --port 8080
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)080)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
