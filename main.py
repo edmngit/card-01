@@ -1,115 +1,95 @@
+import pathlib
 import os
-import datetime
-from typing import Optional
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from openai import OpenAI
 from dotenv import load_dotenv
 
-_ENGINE: Optional[Engine] = None
-_DB_ENABLED = False
+# Importar o seu banco de dados corrigido
+import db
 
-def init_db(base_dir: str):
-    global _ENGINE, _DB_ENABLED
-    
-    # Carrega variáveis do arquivo .secret-env
-    load_dotenv(os.path.join(base_dir, ".secret-env"))
-    
-    db_url = os.getenv("DATABASE_URL")
-    
-    if not db_url:
-        print("❌ [DB ERROR] DATABASE_URL não encontrada!")
-        _DB_ENABLED = False
-        return
+# --- Inicialização Global (FORA de qualquer função ou IF) ---
+BASE_DIR = pathlib.Path(__file__).parent
+load_dotenv(BASE_DIR / ".secret-env")
 
-    # Ajuste para compatibilidade (postgres:// -> postgresql://)
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
+# O Uvicorn procura exatamente por esta variável "app"
+app = FastAPI()
 
-    try:
-        # pool_pre_ping=True ajuda a recuperar conexões perdidas
-        _ENGINE = create_engine(db_url, pool_pre_ping=True)
-        
-        # Teste de conexão simples
-        with _ENGINE.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        
-        _DB_ENABLED = True
-        print("✅ [DB SUCCESS] Conectado ao PostgreSQL (Schema Public).")
-        
-        # Chama a criação de tabelas automaticamente ao iniciar
-        criar_tabelas()
-        
-    except Exception as e:
-        _DB_ENABLED = False
-        print(f"❌ [DB CRITICAL ERROR] Falha ao conectar/inicializar: {e}")
+# Inicializa banco de dados
+db.init_db(str(BASE_DIR))
 
-def criar_tabelas():
-    """Cria as tabelas no schema public caso não existam."""
-    if not _ENGINE: return
-    try:
-        with _ENGINE.begin() as conn:
-            # Criando tabela de sessões
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS sessao_chat (
-                    id SERIAL PRIMARY KEY,
-                    session_id TEXT UNIQUE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """))
+# --- Middlewares ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Configuração OpenAI ---
+MODEL = "gpt-5-mini"
+client = OpenAI(api_key=os.getenv("key"))
+
+class ChatRequest(BaseModel):
+    message: str
+    session_id: str
+
+# --- Rotas ---
+
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    with open(BASE_DIR / "index.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+@app.post("/api/chat/stream")
+async def chat_stream(req: ChatRequest):
+    # Salva no banco (agora no public)
+    db.salvar_mensagem(req.session_id, "user", req.message)
+
+    def generate():
+        full_response = ""
+        try:
+            # Tenta carregar o prompt do arquivo
+            try:
+                with open(BASE_DIR / "prompt_1.txt", "r", encoding="utf-8") as f:
+                    system_prompt = f.read()
+            except:
+                system_prompt = "Você é um assistente prestativo."
             
-            # Criando tabela de mensagens
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS mensagem_chat (
-                    id SERIAL PRIMARY KEY,
-                    sessao_id INTEGER REFERENCES sessao_chat(id),
-                    role TEXT,
-                    conteudo TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """))
-        print("✅ [DB] Tabelas verificadas/criadas com sucesso.")
-    except Exception as e:
-        print(f"❌ [DB ERROR] Falha ao criar tabelas: {e}")
-
-def salvar_mensagem(session_id: str, role: str, conteudo: str):
-    """Salva a interação no banco de dados."""
-    if not _DB_ENABLED or not _ENGINE:
-        return
-
-    try:
-        with _ENGINE.begin() as conn:
-            # 1. Insere a sessão se não existir
-            conn.execute(
-                text("INSERT INTO sessao_chat (session_id) VALUES (:s) ON CONFLICT (session_id) DO NOTHING"),
-                {"s": session_id}
+            stream = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": req.message}
+                ],
+                stream=True,
             )
-            
-            # 2. Busca o ID da sessão
-            res = conn.execute(
-                text("SELECT id FROM sessao_chat WHERE session_id = :s"),
-                {"s": session_id}
-            ).fetchone()
-            
-            # 3. Insere a mensagem vinculada ao ID da sessão
-            if res:
-                conn.execute(
-                    text("INSERT INTO mensagem_chat (sessao_id, role, conteudo) VALUES (:sid, :r, :c)"),
-                    {"sid": res[0], "r": role, "c": conteudo}
-                )
-    except Exception as e:
-        print(f"❌ [DB ERROR] Erro ao salvar mensagem: {e}")
+            for chunk in stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    full_response += content
+                    yield content
 
-def get_engine():
-    return _ENGINE
+            db.salvar_mensagem(req.session_id, "assistant", full_response)
 
-def db_ativo():
-    return _DB_ENABLED
+        except Exception as e:
+            yield f"Erro: {str(e)}"
 
-def load_system_prompt():
-    """Função auxiliar para carregar o prompt (ajuste o caminho se necessário)"""
-    try:
-        # Assume que o prompt_1.txt está na mesma pasta do main.py
-        with open("prompt_1.txt", "r", encoding="utf-8") as f:
-            return f.read()
-    except:
-        return "Você é um assistente prestativo."
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+# --- Arquivos Estáticos ---
+# Verifique se a pasta 'static' existe para não dar erro ao montar
+static_path = BASE_DIR / "static"
+if not static_path.exists():
+    static_path.mkdir(parents=True)
+
+app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+# O bloco abaixo é só para rodar LOCALMENTE. 
+# Na nuvem, o comando de inicialização deve ser: uvicorn main:app --host 0.0.0.0 --port 8080
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080)080)
