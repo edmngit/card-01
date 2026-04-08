@@ -71,20 +71,20 @@ def salvar_mensagem(session_id: str, role: str, conteudo: str):
         with _ENGINE.begin() as conn:
             # Garante que a sessão existe
             conn.execute(
-                text("INSERT INTO iasrc.sessao_chat (session_id) VALUES (:s) ON CONFLICT (session_id) DO NOTHING"),
+                text("INSERT INTO sessao_chat (session_id) VALUES (:s) ON CONFLICT (session_id) DO NOTHING"),
                 {"s": session_id}
             )
             
             # Pega o ID interno da sessão
             res = conn.execute(
-                text("SELECT id FROM iasrc.sessao_chat WHERE session_id = :s"),
+                text("SELECT id FROM sessao_chat WHERE session_id = :s"),
                 {"s": session_id}
             ).fetchone()
             
             if res:
                 id_interno = res[0]
                 conn.execute(
-                    text("INSERT INTO iasrc.mensagem_chat (sessao_id, role, conteudo) VALUES (:sid, :r, :c)"),
+                    text("INSERT INTO mensagem_chat (sessao_id, role, conteudo) VALUES (:sid, :r, :c)"),
                     {"sid": id_interno, "r": role, "c": conteudo}
                 )
     except Exception as e:
