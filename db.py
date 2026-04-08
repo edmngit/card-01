@@ -79,22 +79,20 @@ def criar_tabelas():
         print(f"⚠️ [DB WARNING] Erro ao verificar/criar tabelas: {e}")
 
 def salvar_mensagem(session_id: str, role: str, conteudo: str):
-    """
-    Salva uma mensagem (usuário ou assistente) vinculada a uma sessão.
-    """
     if not _DB_ENABLED or not _ENGINE:
-        print(f"⚠️ [DB SKIP] Banco inativo ou não conectado. Mensagem de '{role}' não salva.")
+        print(f"⚠️ [DB SKIP] Banco inativo. Mensagem de '{role}' não salva.")
         return
 
-    try:
-        with _ENGINE.begin() as conn:
-            # Garante que a sessão existe no banco
+    # Usamos connect() em vez de begin() para ter controle manual se necessário
+    with _ENGINE.connect() as conn:
+        try:
+            # 1. Garante que a sessão existe
             conn.execute(
                 text("INSERT INTO sessao_chat (session_id) VALUES (:s) ON CONFLICT (session_id) DO NOTHING"),
                 {"s": session_id}
             )
             
-            # Recupera o ID interno da sessão
+            # 2. Busca o ID da sessão
             res = conn.execute(
                 text("SELECT id FROM sessao_chat WHERE session_id = :s"),
                 {"s": session_id}
@@ -102,14 +100,22 @@ def salvar_mensagem(session_id: str, role: str, conteudo: str):
             
             if res:
                 id_interno = res[0]
-                # Insere a mensagem
+                # 3. Insere a mensagem
                 conn.execute(
                     text("INSERT INTO mensagem_chat (sessao_id, role, conteudo) VALUES (:sid, :r, :c)"),
                     {"sid": id_interno, "r": role, "c": conteudo}
                 )
-    except Exception as e:
-        print(f"❌ [DB ERROR] Falha ao salvar mensagem no banco: {e}")
+                # 4. Força a gravação no disco
+                conn.commit()
+                print(f"💾 [DB] Mensagem de '{role}' gravada com sucesso!")
+            else:
+                print(f"❌ [DB] Erro: Não foi possível encontrar/criar a sessão {session_id}")
 
+        except Exception as e:
+            conn.rollback()
+            print(f"❌ [DB SQL ERROR]: {e}")
+
+            
 def get_engine():
     return _ENGINE
 
