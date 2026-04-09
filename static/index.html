@@ -516,9 +516,12 @@
         document.getElementById(pageId).classList.add('active');
         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
         navBtn.classList.add('active');
-        if (pageId === 'page-pedidos') renderClientOrders();
+        if (pageId === 'page-pedidos') { refreshMyOrders().then(() => { updateBadgesFromCache(); renderClientOrders(); }); }
         if (pageId === 'page-garcom' && garcomLoggedIn) renderGarcomOrders();
-        if (pageId === 'page-admin') updateAdminStats();
+        if (pageId === 'page-admin') {
+            const panel = document.getElementById('adminPanel');
+            if (panel && panel.style.display !== 'none') updateAdminStats();
+        }
     }
     function goToChatWith(text) {
         const chatBtn = document.querySelector('.nav-item');
@@ -528,37 +531,84 @@
     }
 
     // ========================================================
-    //  ORDER STORE (in-memory, simulates DB)
+    //  ORDER STORE (cliente: cache local sincronizado com o backend)
     // ========================================================
-    let orderCounter = 0;
-    const orders = []; // { id, number, items[], total, totalServico, status, sessionId, createdAt, garcomObs, garcomName }
+    // Cache local — fonte da verdade é o backend (tabelas pedido / pedido_item).
+    let myOrdersCache = [];      // pedidos do cliente atual
+    let pendingOrdersCache = []; // pedidos pendentes (visão do garçom)
+    // Edições locais do garçom antes de confirmar (id_pedido -> { item_id: qty_final })
+    const garcomEdits = {};
 
-    function createOrder(orderData) {
-        orderCounter++;
-        const order = {
-            id: 'ord_' + Date.now(),
-            number: String(orderCounter).padStart(3, '0'),
-            items: orderData.items.map(it => ({ ...it, qtyFinal: it.quantidade })),
-            total: orderData.total_estimado,
-            totalServico: orderData.total_com_servico,
-            status: 'pendente',
-            sessionId: sessionId,
-            createdAt: new Date(),
-            garcomObs: '',
-            garcomName: '',
-        };
-        orders.push(order);
-        updateBadges();
-        return order;
+    async function createOrder(orderData) {
+        // Envia o pedido para o backend
+        try {
+            const res = await fetch('/api/pedidos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    items: (orderData.items || []).map(it => ({
+                        nome: it.nome,
+                        quantidade: it.quantidade,
+                        preco_unitario: it.preco_unitario,
+                        observacao: it.observacao || null,
+                    })),
+                    total_estimado: Number(orderData.total_estimado || 0),
+                    total_com_servico: Number(orderData.total_com_servico || 0),
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || 'Falha ao criar pedido');
+            await refreshMyOrders();
+            updateBadgesFromCache();
+            return data.pedido;
+        } catch (err) {
+            console.error('createOrder:', err);
+            alert('⚠️ Não foi possível enviar o pedido agora.\n' + (err.message || ''));
+            return null;
+        }
     }
 
-    function updateBadges() {
-        const pending = orders.filter(o => o.status === 'pendente').length;
-        const myOrders = orders.filter(o => o.sessionId === sessionId).length;
+    async function refreshMyOrders() {
+        try {
+            const res = await fetch(`/api/pedidos?session_id=${encodeURIComponent(sessionId)}`);
+            const data = await res.json();
+            if (data && data.ok) myOrdersCache = data.items || [];
+        } catch (e) { console.error('refreshMyOrders:', e); }
+    }
+
+    async function refreshPendingOrders() {
+        try {
+            const res = await fetch('/api/pedidos?status=pendente');
+            const data = await res.json();
+            if (data && data.ok) pendingOrdersCache = data.items || [];
+        } catch (e) { console.error('refreshPendingOrders:', e); }
+    }
+
+    function updateBadgesFromCache() {
+        const myCount = myOrdersCache.length;
+        const pendCount = pendingOrdersCache.length;
         const bp = document.getElementById('badgePedidos');
         const bg = document.getElementById('badgeGarcom');
-        if (myOrders > 0) { bp.textContent = myOrders; bp.style.display = 'flex'; } else { bp.style.display = 'none'; }
-        if (pending > 0) { bg.textContent = pending; bg.style.display = 'flex'; } else { bg.style.display = 'none'; }
+        if (myCount > 0) { bp.textContent = myCount; bp.style.display = 'flex'; } else { bp.style.display = 'none'; }
+        if (pendCount > 0) { bg.textContent = pendCount; bg.style.display = 'flex'; } else { bg.style.display = 'none'; }
+    }
+
+    // Compatibilidade com chamadas antigas
+    function updateBadges() { updateBadgesFromCache(); }
+
+    // Polling periódico para manter os badges/listas atualizados
+    async function pollOrders() {
+        if (typeof sessionId === 'undefined') return;
+        await refreshMyOrders();
+        await refreshPendingOrders();
+        updateBadgesFromCache();
+        // Re-render se a página atual for relevante
+        const activePage = document.querySelector('.page-section.active');
+        if (activePage) {
+            if (activePage.id === 'page-pedidos') renderClientOrders();
+            if (activePage.id === 'page-garcom' && garcomLoggedIn) renderGarcomOrders();
+        }
     }
 
     // ========================================================
@@ -636,13 +686,22 @@
         } catch (e) { return null; }
     }
 
-    function sendOrder(cardId) {
+    async function sendOrder(cardId) {
         const card = document.getElementById(cardId);
         if (!card || !card._orderData) return;
-        const newOrder = createOrder(card._orderData);
         const btn = card.querySelector('.btn-send-order');
-        btn.innerHTML = `<i class="bi bi-check-circle-fill"></i> Pedido #${newOrder.number} enviado!`;
-        btn.classList.add('sent');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enviando...'; }
+
+        const newOrder = await createOrder(card._orderData);
+        if (!newOrder) {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send-fill"></i> Enviar Pedido para a Cozinha'; }
+            return;
+        }
+
+        if (btn) {
+            btn.innerHTML = `<i class="bi bi-check-circle-fill"></i> Pedido #${newOrder.number} enviado!`;
+            btn.classList.add('sent');
+        }
 
         // Notify in chat
         const notifRow = document.createElement('div');
@@ -810,27 +869,60 @@
     // ========================================================
     function renderClientOrders() {
         const container = document.getElementById('clientOrdersList');
-        const myOrders = orders.filter(o => o.sessionId === sessionId).reverse();
-        if (!myOrders.length) { container.innerHTML = '<div class="empty-state"><i class="bi bi-receipt"></i><p>Você ainda não enviou pedidos.<br>Use o chat para montar seu pedido!</p></div>'; return; }
+        // myOrdersCache já vem do backend ordenado por created_at DESC
+        const myOrders = (myOrdersCache || []).slice();
+        if (!myOrders.length) {
+            container.innerHTML = '<div class="empty-state"><i class="bi bi-receipt"></i><p>Você ainda não enviou pedidos.<br>Use o chat para montar seu pedido!</p></div>';
+            return;
+        }
         container.innerHTML = myOrders.map(o => {
             const statusClass = `status-${o.status}`;
-            const statusLabel = o.status === 'pendente' ? 'Aguardando garçom' : o.status === 'confirmado' ? 'Confirmado' : 'Cancelado';
-            const itemsText = o.items.filter(it => it.qtyFinal > 0).map(it => `${it.qtyFinal}× ${it.nome}`).join(', ');
-            const finalTotal = o.status === 'confirmado' ? calcFinalTotal(o) : Number(o.totalServico||0);
-            const obsHtml = o.garcomObs ? `<div style="margin-top:8px;font-size:12px;color:#e8a76a;background:rgba(196,99,42,.08);padding:6px 10px;border-radius:8px;border-left:2px solid var(--accent);"><strong>Obs garçom:</strong> ${o.garcomObs}</div>` : '';
+            const statusLabel = o.status === 'pendente' ? 'Aguardando garçom'
+                              : o.status === 'confirmado' ? 'Confirmado'
+                              : 'Cancelado';
+            const itemsText = (o.items || [])
+                .filter(it => (it.qty_final || 0) > 0)
+                .map(it => `${it.qty_final}× ${it.nome}`)
+                .join(', ');
+            // Para pedidos confirmados o backend já gravou total_final.
+            // Para pendentes mostramos o total_com_servico estimado.
+            const finalTotal = o.status === 'confirmado'
+                ? Number(o.total_final || 0)
+                : Number(o.total_com_servico || 0);
+            const obsHtml = o.garcom_obs
+                ? `<div style="margin-top:8px;font-size:12px;color:#e8a76a;background:rgba(196,99,42,.08);padding:6px 10px;border-radius:8px;border-left:2px solid var(--accent);"><strong>Obs garçom:</strong> ${escapeHtml(o.garcom_obs)}</div>`
+                : '';
+            const horaTxt = formatHora(o.created_at);
             return `<div class="order-track-card">
                 <div class="order-track-header"><span class="order-num">#${o.number}</span><span class="status-badge ${statusClass}">${statusLabel}</span></div>
-                <div class="order-track-items">${itemsText}</div>
+                <div class="order-track-items">${escapeHtml(itemsText)}</div>
                 <div class="order-track-total">Total: R$ ${finalTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
                 ${obsHtml}
-                <div class="order-track-footer"><span>${o.createdAt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>${o.garcomName ? `<span>Garçom: ${o.garcomName}</span>` : ''}</div>
+                <div class="order-track-footer"><span>${horaTxt}</span>${o.garcom_nome ? `<span>Garçom: ${escapeHtml(o.garcom_nome)}</span>` : ''}</div>
             </div>`;
         }).join('');
     }
 
-    function calcFinalTotal(order) {
-        const sub = order.items.reduce((s,it) => s + (it.qtyFinal * it.preco_unitario), 0);
-        return sub * 1.1;
+    // Helpers compartilhados
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function formatHora(iso) {
+        if (!iso) return '';
+        try {
+            const d = new Date(iso);
+            return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        } catch { return ''; }
+    }
+    function formatDataHora(iso) {
+        if (!iso) return '';
+        try {
+            const d = new Date(iso);
+            return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+        } catch { return ''; }
     }
 
     // ========================================================
@@ -898,36 +990,52 @@
     }
     function garcomDoLogout() { garcomLoggedIn = false; garcomCurrentName = ''; document.getElementById('garcomPanel').style.display = 'none'; document.getElementById('garcomLogin').style.display = 'block'; document.getElementById('garcomPin').value = ''; }
 
-    function renderGarcomOrders() {
+    async function renderGarcomOrders() {
+        await refreshPendingOrders();
+        updateBadgesFromCache();
+
         const container = document.getElementById('garcomOrdersList');
-        const pending = orders.filter(o => o.status === 'pendente');
-        if (!pending.length) { container.innerHTML = '<div class="empty-state"><i class="bi bi-check-circle"></i><p>Nenhum pedido pendente no momento.</p></div>'; return; }
+        const pending = pendingOrdersCache || [];
+        if (!pending.length) {
+            container.innerHTML = '<div class="empty-state"><i class="bi bi-check-circle"></i><p>Nenhum pedido pendente no momento.</p></div>';
+            return;
+        }
         container.innerHTML = pending.map(o => {
-            const preview = o.items.map(it => `${it.quantidade}× ${it.nome}`).join(', ');
-            const itemRows = o.items.map((it, idx) => `
-                <div class="garcom-item-row ${it.qtyFinal <= 0 ? 'garcom-item-removed':''}" id="gi_${o.id}_${idx}">
+            // edits locais (quantidade ainda não salva); cai no qty_final original
+            const edits = garcomEdits[o.id] || {};
+            const items = (o.items || []).map(it => ({
+                ...it,
+                _qty: (edits[it.id] != null) ? edits[it.id] : it.qty_final,
+            }));
+            const preview = items
+                .filter(it => it._qty > 0)
+                .map(it => `${it._qty}× ${it.nome}`).join(', ') || '<em>(todos os itens removidos)</em>';
+
+            const itemRows = items.map(it => `
+                <div class="garcom-item-row ${it._qty <= 0 ? 'garcom-item-removed':''}" id="gi_${o.id}_${it.id}">
                     <div class="garcom-item-qty-ctrl">
-                        <button onclick="garcomQty('${o.id}',${idx},-1)">−</button>
-                        <span class="qty-val">${it.qtyFinal}</span>
-                        <button onclick="garcomQty('${o.id}',${idx},1)">+</button>
+                        <button onclick="garcomQty(${o.id},${it.id},-1)">−</button>
+                        <span class="qty-val">${it._qty}</span>
+                        <button onclick="garcomQty(${o.id},${it.id},1)">+</button>
                     </div>
-                    <span class="garcom-item-name">${it.nome}</span>
-                    <span class="garcom-item-price">R$ ${(it.qtyFinal * it.preco_unitario).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+                    <span class="garcom-item-name">${escapeHtml(it.nome)}${it.observacao ? ` <em style="color:#e8a76a;font-size:11px;">(${escapeHtml(it.observacao)})</em>` : ''}</span>
+                    <span class="garcom-item-price">R$ ${(it._qty * Number(it.preco_unitario||0)).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
                 </div>`).join('');
+
             return `<div class="garcom-order-card">
                 <div class="garcom-order-top" onclick="toggleGarcomDetail('gd_${o.id}')">
-                    <div class="row-top"><span class="order-num">#${o.number}</span><span class="order-time">${o.createdAt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div>
+                    <div class="row-top"><span class="order-num">#${o.number}</span><span class="order-time">${formatHora(o.created_at)}</span></div>
                     <div class="items-preview">${preview}</div>
                 </div>
                 <div class="garcom-order-detail" id="gd_${o.id}">
                     ${itemRows}
                     <div class="garcom-obs-area">
                         <label>Observação do garçom</label>
-                        <textarea id="gobs_${o.id}" placeholder="Ex: mesa 12, cliente pediu ponto mal passado...">${o.garcomObs}</textarea>
+                        <textarea id="gobs_${o.id}" placeholder="Ex: mesa 12, cliente pediu ponto mal passado...">${escapeHtml(o.garcom_obs || '')}</textarea>
                     </div>
                     <div class="garcom-actions">
-                        <button class="btn-cancel-order" onclick="garcomAction('${o.id}','cancelado')"><i class="bi bi-x-lg"></i> Cancelar</button>
-                        <button class="btn-confirm-order" onclick="garcomAction('${o.id}','confirmado')"><i class="bi bi-check-lg"></i> Confirmar</button>
+                        <button class="btn-cancel-order" onclick="garcomAction(${o.id},'cancelado')"><i class="bi bi-x-lg"></i> Rejeitar</button>
+                        <button class="btn-confirm-order" onclick="garcomAction(${o.id},'confirmado')"><i class="bi bi-check-lg"></i> Aprovar</button>
                     </div>
                 </div>
             </div>`;
@@ -939,26 +1047,51 @@
         if (el) el.classList.toggle('open');
     }
 
-    function garcomQty(orderId, itemIdx, delta) {
-        const order = orders.find(o => o.id === orderId);
+    function garcomQty(pedidoId, itemId, delta) {
+        const order = (pendingOrdersCache || []).find(o => o.id === pedidoId);
         if (!order) return;
-        const item = order.items[itemIdx];
-        item.qtyFinal = Math.max(0, item.qtyFinal + delta);
-        renderGarcomOrders();
-        // Re-open the detail
-        const detail = document.getElementById(`gd_${orderId}`);
-        if (detail) detail.classList.add('open');
+        const item = (order.items || []).find(it => it.id === itemId);
+        if (!item) return;
+        if (!garcomEdits[pedidoId]) garcomEdits[pedidoId] = {};
+        const current = (garcomEdits[pedidoId][itemId] != null) ? garcomEdits[pedidoId][itemId] : item.qty_final;
+        garcomEdits[pedidoId][itemId] = Math.max(0, current + delta);
+        renderGarcomOrders().then(() => {
+            const detail = document.getElementById(`gd_${pedidoId}`);
+            if (detail) detail.classList.add('open');
+        });
     }
 
-    function garcomAction(orderId, status) {
-        const order = orders.find(o => o.id === orderId);
-        if (!order) return;
-        const obsEl = document.getElementById(`gobs_${orderId}`);
-        if (obsEl) order.garcomObs = obsEl.value.trim();
-        order.garcomName = garcomCurrentName;
-        order.status = status;
-        updateBadges();
-        renderGarcomOrders();
+    async function garcomAction(pedidoId, status) {
+        const obsEl = document.getElementById(`gobs_${pedidoId}`);
+        const garcomObs = obsEl ? obsEl.value.trim() : '';
+        const edits = garcomEdits[pedidoId] || {};
+        // Converte para o formato { "<item_id>": qty_final } esperado pelo backend
+        const items_qty_final = {};
+        for (const k of Object.keys(edits)) items_qty_final[String(k)] = edits[k];
+
+        try {
+            const res = await fetch(`/api/pedidos/${pedidoId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: status,
+                    garcom_nome: garcomCurrentName,
+                    garcom_obs: garcomObs,
+                    items_qty_final: Object.keys(items_qty_final).length ? items_qty_final : null,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || 'Falha ao atualizar pedido');
+            // Limpa edits e recarrega
+            delete garcomEdits[pedidoId];
+            await refreshPendingOrders();
+            await refreshMyOrders();
+            updateBadgesFromCache();
+            renderGarcomOrders();
+        } catch (err) {
+            console.error('garcomAction:', err);
+            alert('⚠️ Não foi possível atualizar o pedido.\n' + (err.message || ''));
+        }
     }
 
     // ========================================================
@@ -967,7 +1100,12 @@
     const ADMIN_PASS = '1234';
     function adminDoLogin() {
         const inp = document.getElementById('adminPass');
-        if (inp.value === ADMIN_PASS) { document.getElementById('adminLogin').style.display='none'; document.getElementById('adminPanel').style.display='block'; updateAdminStats(); renderAdminOrders(); }
+        if (inp.value === ADMIN_PASS) {
+            document.getElementById('adminLogin').style.display='none';
+            document.getElementById('adminPanel').style.display='block';
+            updateAdminStats();
+            renderAdminQueries();
+        }
         else { inp.classList.add('error'); inp.value=''; inp.placeholder='Senha incorreta'; setTimeout(()=>{inp.classList.remove('error');inp.placeholder='••••••';},2000); }
     }
     function adminDoLogout() { document.getElementById('adminPanel').style.display='none'; document.getElementById('adminLogin').style.display='block'; document.getElementById('adminPass').value=''; }
@@ -977,22 +1115,112 @@
         document.getElementById('adminQueries').style.display = tab==='queries'?'block':'none';
         document.getElementById('adminFeedbacks').style.display = tab==='feedbacks'?'block':'none';
         document.getElementById('adminOrders').style.display = tab==='orders'?'block':'none';
+        if (tab === 'queries') renderAdminQueries();
+        if (tab === 'feedbacks') renderAdminFeedbacks();
         if (tab === 'orders') renderAdminOrders();
     }
 
-    function updateAdminStats() { document.getElementById('statPedidos').textContent = orders.length; }
-
-    function renderAdminOrders() {
-        const container = document.getElementById('adminOrdersTable');
-        if (!orders.length) { container.innerHTML = '<div class="empty-state"><i class="bi bi-receipt"></i><p>Nenhum pedido registrado.</p></div>'; return; }
-        const rows = orders.slice().reverse().map(o => {
-            const statusClass = `status-${o.status}`;
-            const label = o.status === 'pendente' ? 'Pendente' : o.status === 'confirmado' ? 'Confirmado' : 'Cancelado';
-            const items = o.items.filter(it => it.qtyFinal > 0).map(it => `${it.qtyFinal}× ${it.nome}`).join(', ');
-            return `<tr><td><strong style="color:var(--accent)">#${o.number}</strong></td><td>${items || '<em>vazio</em>'}</td><td><span class="status-badge ${statusClass}">${label}</span></td><td>${o.garcomName||'—'}</td></tr>`;
-        }).join('');
-        container.innerHTML = `<table class="admin-table"><thead><tr><th>#</th><th>Itens</th><th>Status</th><th>Garçom</th></tr></thead><tbody>${rows}</tbody></table>`;
+    async function updateAdminStats() {
+        try {
+            const res = await fetch('/api/admin/stats');
+            const data = await res.json();
+            if (!data || !data.ok) return;
+            const s = data.stats || {};
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v ?? 0); };
+            set('statQueries', s.consultas_hoje);
+            set('statFeedbacks', s.feedbacks_total);
+            set('statPedidos', s.pedidos_total);
+            set('statReclamacoes', s.reclamacoes);
+        } catch (e) { console.error('updateAdminStats:', e); }
     }
+
+    async function renderAdminQueries() {
+        const container = document.getElementById('adminQueries');
+        try {
+            const res = await fetch('/api/admin/queries?limit=50');
+            const data = await res.json();
+            const items = (data && data.items) || [];
+            if (!items.length) {
+                container.innerHTML = '<div class="empty-state"><i class="bi bi-chat-text"></i><p>Nenhuma consulta registrada ainda.</p></div>';
+                return;
+            }
+            const rows = items.map(q => `
+                <tr>
+                    <td style="white-space:nowrap;">${formatDataHora(q.created_at)}</td>
+                    <td>${escapeHtml(q.conteudo || '')}</td>
+                </tr>`).join('');
+            container.innerHTML = `<table class="admin-table"><thead><tr><th>Hora</th><th>Pergunta do Cliente</th></tr></thead><tbody>${rows}</tbody></table>`;
+        } catch (e) {
+            container.innerHTML = '<div class="empty-state"><p>⚠️ Erro ao carregar consultas.</p></div>';
+        }
+    }
+
+    async function renderAdminFeedbacks() {
+        const container = document.getElementById('adminFeedbacks');
+        try {
+            const res = await fetch('/api/feedback?limit=100');
+            const data = await res.json();
+            const items = (data && data.items) || [];
+            if (!items.length) {
+                container.innerHTML = '<div class="empty-state"><i class="bi bi-star"></i><p>Nenhum feedback recebido ainda.</p></div>';
+                return;
+            }
+            const rows = items.map(f => {
+                const badge = f.tipo === 'elogio'
+                    ? '<span class="badge-elogio">Elogio</span>'
+                    : '<span class="badge-reclamacao">Reclamação</span>';
+                const nome = f.nome ? `<br><small style="color:var(--text-secondary);">— ${escapeHtml(f.nome)}</small>` : '';
+                return `<tr>
+                    <td>${badge}<br><small style="color:var(--text-secondary);">${formatDataHora(f.created_at)}</small></td>
+                    <td>${escapeHtml(f.mensagem || '')}${nome}</td>
+                </tr>`;
+            }).join('');
+            container.innerHTML = `<table class="admin-table"><thead><tr><th>Tipo</th><th>Mensagem</th></tr></thead><tbody>${rows}</tbody></table>`;
+        } catch (e) {
+            container.innerHTML = '<div class="empty-state"><p>⚠️ Erro ao carregar feedbacks.</p></div>';
+        }
+    }
+
+    async function renderAdminOrders() {
+        const container = document.getElementById('adminOrdersTable');
+        try {
+            const res = await fetch('/api/pedidos?limit=200');
+            const data = await res.json();
+            const items = (data && data.items) || [];
+            if (!items.length) {
+                container.innerHTML = '<div class="empty-state"><i class="bi bi-receipt"></i><p>Nenhum pedido registrado.</p></div>';
+                return;
+            }
+            const rows = items.map(o => {
+                const statusClass = `status-${o.status}`;
+                const label = o.status === 'pendente' ? 'Pendente' : o.status === 'confirmado' ? 'Confirmado' : 'Cancelado';
+                const itemsTxt = (o.items || [])
+                    .filter(it => (it.qty_final || 0) > 0)
+                    .map(it => `${it.qty_final}× ${it.nome}`)
+                    .join(', ');
+                const total = o.status === 'confirmado'
+                    ? Number(o.total_final || 0)
+                    : Number(o.total_com_servico || 0);
+                return `<tr>
+                    <td><strong style="color:var(--accent)">#${o.number}</strong><br><small style="color:var(--text-secondary);">${formatDataHora(o.created_at)}</small></td>
+                    <td>${escapeHtml(itemsTxt) || '<em>vazio</em>'}</td>
+                    <td>R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+                    <td><span class="status-badge ${statusClass}">${label}</span></td>
+                    <td>${escapeHtml(o.garcom_nome || '—')}</td>
+                </tr>`;
+            }).join('');
+            container.innerHTML = `<table class="admin-table"><thead><tr><th>#</th><th>Itens</th><th>Total</th><th>Status</th><th>Garçom</th></tr></thead><tbody>${rows}</tbody></table>`;
+        } catch (e) {
+            container.innerHTML = '<div class="empty-state"><p>⚠️ Erro ao carregar pedidos.</p></div>';
+        }
+    }
+    // ========================================================
+    //  INICIALIZAÇÃO DE POLLING
+    // ========================================================
+    // Carrega pedidos do cliente e dos pendentes na inicialização e
+    // depois a cada 8 segundos para manter badges/visões sincronizados.
+    pollOrders();
+    setInterval(pollOrders, 8000);
 </script>
 
 </body>

@@ -81,6 +81,27 @@ class FeedbackRequest(BaseModel):
     session_id: str | None = None
 
 
+class PedidoItemIn(BaseModel):
+    nome: str
+    quantidade: int = 1
+    preco_unitario: float = 0
+    observacao: str | None = None
+
+
+class PedidoCreateRequest(BaseModel):
+    session_id: str
+    items: list[PedidoItemIn]
+    total_estimado: float = 0
+    total_com_servico: float = 0
+
+
+class PedidoUpdateRequest(BaseModel):
+    status: str | None = None  # 'pendente' | 'confirmado' | 'cancelado'
+    garcom_nome: str | None = None
+    garcom_obs: str | None = None
+    items_qty_final: dict[str, int] | None = None  # { "<item_id>": qty_final }
+
+
 # --- Rota da página HTML ---
 @app.get("/", response_class=HTMLResponse)
 async def serve_index():
@@ -242,6 +263,111 @@ async def listar_feedback(tipo: str | None = None, limit: int = 100):
         "items": db.listar_feedbacks(limit=limit, tipo=tipo),
         "stats": db.contar_feedbacks(),
     }
+
+
+# ============================================================
+# PEDIDOS
+# ============================================================
+
+@app.post("/api/pedidos")
+async def criar_pedido(req: PedidoCreateRequest):
+    """Cliente envia um pedido para a cozinha (status inicial: pendente)."""
+    if not db.db_ativo():
+        return {"ok": False, "error": "Banco de dados indisponível no momento."}
+
+    if not req.session_id or not req.items:
+        return {"ok": False, "error": "session_id e items são obrigatórios."}
+
+    items_payload = [
+        {
+            "nome": it.nome,
+            "quantidade": it.quantidade,
+            "preco_unitario": it.preco_unitario,
+            "observacao": it.observacao,
+        }
+        for it in req.items
+    ]
+
+    pedido = db.criar_pedido(
+        session_id=req.session_id,
+        items=items_payload,
+        total_estimado=req.total_estimado,
+        total_com_servico=req.total_com_servico,
+    )
+    if not pedido:
+        return {"ok": False, "error": "Falha ao criar pedido."}
+    return {"ok": True, "pedido": pedido}
+
+
+@app.get("/api/pedidos")
+async def listar_pedidos(
+    status: str | None = None,
+    session_id: str | None = None,
+    limit: int = 200,
+):
+    """
+    Lista pedidos. Filtros opcionais:
+      - status=pendente|confirmado|cancelado
+      - session_id=<id>  (para a aba 'Pedidos' do cliente)
+    """
+    if not db.db_ativo():
+        return {"ok": False, "error": "Banco de dados indisponível.", "items": []}
+    items = db.listar_pedidos(status=status, session_id=session_id, limit=limit)
+    return {"ok": True, "items": items}
+
+
+@app.get("/api/pedidos/{pedido_id}")
+async def obter_pedido(pedido_id: int):
+    if not db.db_ativo():
+        return {"ok": False, "error": "Banco de dados indisponível."}
+    p = db.obter_pedido(pedido_id)
+    if not p:
+        return {"ok": False, "error": "Pedido não encontrado."}
+    return {"ok": True, "pedido": p}
+
+
+@app.patch("/api/pedidos/{pedido_id}")
+async def atualizar_pedido(pedido_id: int, req: PedidoUpdateRequest):
+    """
+    Endpoint usado pelo garçom para aprovar (confirmado),
+    rejeitar (cancelado) ou alterar quantidades de um pedido.
+    """
+    if not db.db_ativo():
+        return {"ok": False, "error": "Banco de dados indisponível."}
+
+    if req.status and req.status not in ("pendente", "confirmado", "cancelado"):
+        return {"ok": False, "error": "Status inválido."}
+
+    pedido = db.atualizar_pedido_garcom(
+        pedido_id=pedido_id,
+        status=req.status,
+        garcom_nome=(req.garcom_nome or None),
+        garcom_obs=(req.garcom_obs if req.garcom_obs is not None else None),
+        items_qty_final=req.items_qty_final or None,
+    )
+    if not pedido:
+        return {"ok": False, "error": "Falha ao atualizar o pedido."}
+    return {"ok": True, "pedido": pedido}
+
+
+# ============================================================
+# ADMIN
+# ============================================================
+
+@app.get("/api/admin/stats")
+async def admin_stats():
+    """Estatísticas para o painel admin."""
+    if not db.db_ativo():
+        return {"ok": False, "error": "Banco de dados indisponível."}
+    return {"ok": True, "stats": db.estatisticas_admin()}
+
+
+@app.get("/api/admin/queries")
+async def admin_queries(limit: int = 50):
+    """Consultas (mensagens de usuários) recentes para o painel admin."""
+    if not db.db_ativo():
+        return {"ok": False, "error": "Banco de dados indisponível.", "items": []}
+    return {"ok": True, "items": db.listar_consultas_recentes(limit=limit)}
 
 
 # --- Monta arquivos estáticos (cria pastas se não existirem) ---
