@@ -839,12 +839,41 @@
     let fbType = null;
     function selectFbType(t) { fbType = t; document.getElementById('btnElogio').classList.toggle('selected',t==='elogio'); document.getElementById('btnReclamacao').classList.toggle('selected',t==='reclamacao'); checkFbReady(); }
     function checkFbReady() { document.getElementById('btnFbSubmit').disabled = !(fbType && document.getElementById('fbMessage').value.trim().length > 3); }
-    function submitFeedback() {
-        if (!fbType || !document.getElementById('fbMessage').value.trim()) return;
-        document.getElementById('feedbackFormArea').style.display = 'none';
-        document.getElementById('feedbackSuccess').style.display = 'block';
+    async function submitFeedback() {
+        const msgEl = document.getElementById('fbMessage');
+        const nameEl = document.getElementById('fbName');
+        const btn = document.getElementById('btnFbSubmit');
+        const mensagem = msgEl.value.trim();
+        if (!fbType || !mensagem) return;
+
+        btn.disabled = true;
+        const originalLabel = btn.textContent;
+        btn.textContent = 'Enviando...';
+
+        try {
+            const res = await fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tipo: fbType,
+                    mensagem: mensagem,
+                    nome: nameEl.value.trim() || null,
+                    session_id: sessionId
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) {
+                throw new Error(data.error || 'Erro ao enviar feedback');
+            }
+            document.getElementById('feedbackFormArea').style.display = 'none';
+            document.getElementById('feedbackSuccess').style.display = 'block';
+        } catch (err) {
+            alert('⚠️ Não foi possível enviar seu feedback agora. Tente novamente em instantes.\n\n' + (err.message || ''));
+            btn.disabled = false;
+            btn.textContent = originalLabel;
+        }
     }
-    function resetFeedback() { fbType = null; document.getElementById('fbName').value=''; document.getElementById('fbMessage').value=''; document.getElementById('btnElogio').classList.remove('selected'); document.getElementById('btnReclamacao').classList.remove('selected'); document.getElementById('btnFbSubmit').disabled=true; document.getElementById('feedbackFormArea').style.display='block'; document.getElementById('feedbackSuccess').style.display='none'; }
+    function resetFeedback() { fbType = null; document.getElementById('fbName').value=''; document.getElementById('fbMessage').value=''; document.getElementById('btnElogio').classList.remove('selected'); document.getElementById('btnReclamacao').classList.remove('selected'); document.getElementById('btnFbSubmit').disabled=true; document.getElementById('btnFbSubmit').textContent='Enviar Feedback'; document.getElementById('feedbackFormArea').style.display='block'; document.getElementById('feedbackSuccess').style.display='none'; }
 
     // ========================================================
     //  GARÇOM

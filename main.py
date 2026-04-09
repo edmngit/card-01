@@ -74,6 +74,13 @@ class ChatResponse(BaseModel):
     session_id: str
 
 
+class FeedbackRequest(BaseModel):
+    tipo: str  # 'elogio' ou 'reclamacao'
+    mensagem: str
+    nome: str | None = None
+    session_id: str | None = None
+
+
 # --- Rota da página HTML ---
 @app.get("/", response_class=HTMLResponse)
 async def serve_index():
@@ -201,6 +208,40 @@ async def clear_session(req: ChatRequest):
 @app.get("/api/db/status")
 async def db_status():
     return {"db_enabled": db.db_ativo()}
+
+
+# --- Feedback dos clientes ---
+@app.post("/api/feedback")
+async def criar_feedback(req: FeedbackRequest):
+    tipo = (req.tipo or "").strip().lower()
+    if tipo not in ("elogio", "reclamacao"):
+        return {"ok": False, "error": "Tipo inválido. Use 'elogio' ou 'reclamacao'."}
+
+    mensagem = (req.mensagem or "").strip()
+    if len(mensagem) < 3:
+        return {"ok": False, "error": "Mensagem muito curta."}
+
+    if not db.db_ativo():
+        return {"ok": False, "error": "Banco de dados indisponível no momento."}
+
+    new_id = db.salvar_feedback(
+        session_id=req.session_id,
+        tipo=tipo,
+        nome=req.nome,
+        mensagem=mensagem,
+    )
+    if new_id is None:
+        return {"ok": False, "error": "Falha ao gravar o feedback."}
+
+    return {"ok": True, "id": new_id}
+
+
+@app.get("/api/feedback")
+async def listar_feedback(tipo: str | None = None, limit: int = 100):
+    return {
+        "items": db.listar_feedbacks(limit=limit, tipo=tipo),
+        "stats": db.contar_feedbacks(),
+    }
 
 
 # --- Monta arquivos estáticos (cria pastas se não existirem) ---

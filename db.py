@@ -74,6 +74,23 @@ def criar_tabelas():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """))
+
+            # Tabela de Feedback dos clientes
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id SERIAL PRIMARY KEY,
+                    session_id TEXT,
+                    tipo TEXT NOT NULL,
+                    nome TEXT,
+                    mensagem TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+            # Índice para acelerar consultas por tipo e data
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_feedback_tipo_data
+                ON feedback (tipo, created_at DESC);
+            """))
         print("📊 [DB INFO] Verificação de tabelas concluída.")
     except Exception as e:
         print(f"⚠️ [DB WARNING] Erro ao verificar/criar tabelas: {e}")
@@ -124,3 +141,118 @@ def db_ativo():
     Retorna True se o banco de dados estiver conectado e operacional.
     """
     return _DB_ENABLED
+
+
+def salvar_feedback(session_id: Optional[str], tipo: str, nome: Optional[str], mensagem: str) -> Optional[int]:
+    """
+    Grava um feedback de cliente no banco.
+    tipo: 'elogio' ou 'reclamacao'
+    Retorna o id do feedback criado, ou None em caso de falha.
+    """
+    if not _DB_ENABLED or not _ENGINE:
+        print(f"⚠️ [DB SKIP] Banco inativo. Feedback ('{tipo}') não salvo.")
+        return None
+
+    if tipo not in ("elogio", "reclamacao"):
+        print(f"❌ [DB] Tipo de feedback inválido: {tipo}")
+        return None
+
+    if not mensagem or not mensagem.strip():
+        print("❌ [DB] Feedback sem mensagem; não gravando.")
+        return None
+
+    with _ENGINE.connect() as conn:
+        try:
+            res = conn.execute(
+                text("""
+                    INSERT INTO feedback (session_id, tipo, nome, mensagem)
+                    VALUES (:sid, :tipo, :nome, :msg)
+                    RETURNING id
+                """),
+                {
+                    "sid": session_id,
+                    "tipo": tipo,
+                    "nome": (nome or "").strip() or None,
+                    "msg": mensagem.strip(),
+                },
+            ).fetchone()
+            conn.commit()
+            new_id = res[0] if res else None
+            print(f"💾 [DB] Feedback '{tipo}' gravado com sucesso (id={new_id}).")
+            return new_id
+        except Exception as e:
+            conn.rollback()
+            print(f"❌ [DB SQL ERROR] salvar_feedback: {e}")
+            return None
+
+
+def listar_feedbacks(limit: int = 100, tipo: Optional[str] = None):
+    """
+    Retorna os feedbacks mais recentes. Opcionalmente filtra por tipo.
+    """
+    if not _DB_ENABLED or not _ENGINE:
+        return []
+
+    try:
+        with _ENGINE.connect() as conn:
+            if tipo in ("elogio", "reclamacao"):
+                rows = conn.execute(
+                    text("""
+                        SELECT id, session_id, tipo, nome, mensagem, created_at
+                        FROM feedback
+                        WHERE tipo = :tipo
+                        ORDER BY created_at DESC
+                        LIMIT :lim
+                    """),
+                    {"tipo": tipo, "lim": limit},
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    text("""
+                        SELECT id, session_id, tipo, nome, mensagem, created_at
+                        FROM feedback
+                        ORDER BY created_at DESC
+                        LIMIT :lim
+                    """),
+                    {"lim": limit},
+                ).fetchall()
+
+            return [
+                {
+                    "id": r[0],
+                    "session_id": r[1],
+                    "tipo": r[2],
+                    "nome": r[3],
+                    "mensagem": r[4],
+                    "created_at": r[5].isoformat() if r[5] else None,
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        print(f"❌ [DB SQL ERROR] listar_feedbacks: {e}")
+        return []
+
+
+def contar_feedbacks() -> dict:
+    """
+    Retorna contagem total e por tipo.
+    """
+    if not _DB_ENABLED or not _ENGINE:
+        return {"total": 0, "elogio": 0, "reclamacao": 0}
+    try:
+        with _ENGINE.connect() as conn:
+            row = conn.execute(text("""
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE tipo = 'elogio') AS elogios,
+                    COUNT(*) FILTER (WHERE tipo = 'reclamacao') AS reclamacoes
+                FROM feedback
+            """)).fetchone()
+            return {
+                "total": int(row[0] or 0),
+                "elogio": int(row[1] or 0),
+                "reclamacao": int(row[2] or 0),
+            }
+    except Exception as e:
+        print(f"❌ [DB SQL ERROR] contar_feedbacks: {e}")
+        return {"total": 0, "elogio": 0, "reclamacao": 0}
