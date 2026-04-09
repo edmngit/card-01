@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Divina Comida - Assistente</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-main: #1a1210;
+            --bg-chat: #1e1614;
+            --bg-user-msg: #c4632a;
+            --bg-ai-msg: #2a201c;
+            --bg-input: #241b17;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255,255,255,0.55);
+            --text-user: #ffffff;
+            --accent: #c4632a;
+            --accent-glow: rgba(196, 99, 42, 0.2);
+            --accent-soft: rgba(196, 99, 42, 0.08);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-warm: rgba(196, 99, 42, 0.15);
+            --green: #22c55e;
+            --green-soft: rgba(34, 197, 94, 0.12);
+            --yellow: #eab308;
+            --yellow-soft: rgba(234, 179, 8, 0.12);
+            --red: #ef4444;
+            --red-soft: rgba(239, 68, 68, 0.12);
+            --header-h: 56px;
+            --nav-h: 60px;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg-main);
+            font-family: 'DM Sans', sans-serif;
+            color: var(--text-primary);
+        }
+
+        .app-container {
+            display: flex; flex-direction: column;
+            height: 100dvh; max-width: 600px;
+            margin: 0 auto; position: relative;
+        }
+
+        /* ===== HEADER ===== */
+        .chat-header {
+            height: var(--header-h);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 16px;
+            background: rgba(26, 18, 16, 0.9);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-warm);
+            z-index: 10; flex-shrink: 0;
+        }
+        .chat-header .brand { display: flex; align-items: center; gap: 10px; }
+        .chat-header .brand-logo { height: 34px; width: auto; border-radius: 4px; }
+        .chat-header .brand-name { font-weight: 600; font-size: 17px; letter-spacing: -0.3px; }
+        .chat-header .status { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
+        .chat-header .status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse-dot 2s infinite; }
+        @keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+        .btn-clear { background: none; border: none; color: var(--text-secondary); font-size: 20px; padding: 8px; cursor: pointer; border-radius: 8px; transition: all .2s; }
+        .btn-clear:hover { color: var(--text-primary); background: rgba(255,255,255,.05); }
+
+        /* ===== PAGES ===== */
+        .page-section { flex: 1 1 auto; overflow: hidden; display: none; flex-direction: column; }
+        .page-section.active { display: flex; }
+
+        /* ===== CHAT ===== */
+        .chat-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 12px; background: var(--bg-chat); -webkit-overflow-scrolling: touch; }
+        .chat-messages::-webkit-scrollbar { width: 3px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: rgba(196,99,42,.2); border-radius: 3px; }
+
+        .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; gap: 16px; }
+        .welcome-logo { height: 72px; width: auto; }
+        .welcome h2 { font-size: 22px; font-weight: 600; letter-spacing: -.5px; }
+        .welcome p { color: var(--text-secondary); font-size: 14px; max-width: 280px; }
+        .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+        .suggestion-chip { background: var(--accent-soft); border: 1px solid var(--border-warm); color: var(--text-secondary); padding: 8px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all .2s; }
+        .suggestion-chip:hover { background: rgba(196,99,42,.15); color: var(--text-primary); border-color: rgba(196,99,42,.3); }
+
+        .msg-row { display: flex; margin-bottom: 8px; animation: msg-in .3s ease-out; }
+        @keyframes msg-in { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+        .msg-row.user { justify-content: flex-end; }
+        .msg-row.ai { justify-content: flex-start; }
+        .msg-bubble { max-width: 82%; padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word; }
+        .msg-row.user .msg-bubble { background: var(--bg-user-msg); color: var(--text-user); border-bottom-right-radius: 6px; }
+        .msg-row.ai .msg-bubble { background: var(--bg-ai-msg); color: var(--text-primary); border-bottom-left-radius: 6px; border: 1px solid var(--border-warm); }
+        .msg-bubble p { margin: 0 0 8px; } .msg-bubble p:last-child { margin-bottom: 0; }
+        .msg-bubble strong { font-weight: 600; }
+        .msg-bubble code { background: rgba(255,255,255,.08); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+        .msg-bubble pre { background: rgba(0,0,0,.3); padding: 10px 12px; border-radius: 10px; overflow-x: auto; margin: 8px 0; font-size: 13px; }
+        .msg-bubble pre code { background: none; padding: 0; }
+        .msg-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; padding: 0 4px; }
+        .msg-row.user .msg-time { text-align: right; }
+        .msg-row.ai .msg-time { text-align: left; }
+
+        .dish-image { width: 100%; max-width: 280px; border-radius: 12px; margin: 8px 0 4px; display: block; cursor: pointer; transition: transform .2s; }
+        .dish-image:active { transform: scale(.97); }
+        .dish-caption { font-size: 11px; color: rgba(255,255,255,.5); margin-top: 2px; }
+
+        /* Typing — shimmer */
+        .typing-indicator { display: flex; flex-direction: column; gap: 6px; padding: 4px 0; width: 160px; }
+        .typing-indicator .shimmer-line { height: 8px; border-radius: 4px; background: linear-gradient(90deg, rgba(196,99,42,.12) 25%, rgba(196,99,42,.35) 50%, rgba(196,99,42,.12) 75%); background-size: 200% 100%; animation: shimmer-slide 1.5s ease-in-out infinite; }
+        .typing-indicator .shimmer-line:nth-child(1) { width: 100%; }
+        .typing-indicator .shimmer-line:nth-child(2) { width: 75%; animation-delay: .15s; }
+        .typing-indicator .shimmer-line:nth-child(3) { width: 50%; animation-delay: .3s; }
+        @keyframes shimmer-slide { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+
+        /* ===== ORDER CARD ===== */
+        .order-card {
+            background: linear-gradient(135deg, #1e1614 0%, #2a1f1a 100%);
+            border: 1px solid var(--accent); border-radius: 16px;
+            padding: 20px 16px; margin: 12px 0 8px; width: 100%;
+            animation: msg-in .3s ease-out;
+            box-shadow: 0 0 24px rgba(196,99,42,.2), 0 2px 8px rgba(0,0,0,.3);
+        }
+        .order-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-warm); }
+        .order-card-header .icon { font-size: 22px; }
+        .order-card-header .title { font-size: 16px; font-weight: 600; color: var(--accent); letter-spacing: -.2px; }
+        .order-items { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+        .order-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+        .order-item-left { display: flex; gap: 10px; flex: 1; }
+        .order-item-qty { font-weight: 700; color: var(--accent); font-size: 15px; min-width: 28px; }
+        .order-item-info { flex: 1; }
+        .order-item-name { font-size: 15px; font-weight: 500; color: var(--text-primary); line-height: 1.3; }
+        .order-item-obs { font-size: 12px; color: #e8a76a; margin-top: 4px; font-style: italic; display: flex; align-items: flex-start; gap: 4px; line-height: 1.4; background: rgba(196,99,42,.08); padding: 4px 8px; border-radius: 6px; border-left: 2px solid var(--accent); }
+        .order-item-price { font-size: 15px; font-weight: 600; color: rgba(255,255,255,.75); white-space: nowrap; }
+        .order-divider { height: 1px; background: var(--border-warm); margin: 10px 0; }
+        .order-totals { display: flex; flex-direction: column; gap: 6px; }
+        .order-total-row { display: flex; justify-content: space-between; font-size: 14px; color: rgba(255,255,255,.55); }
+        .order-total-row.final { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-warm); }
+        .order-total-row.final .label { color: var(--accent); }
+
+        /* Order send button */
+        .btn-send-order {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; margin-top: 14px; padding: 13px;
+            background: var(--accent); color: #fff; border: none;
+            border-radius: 24px; font-family: inherit; font-size: 15px;
+            font-weight: 600; cursor: pointer; transition: all .2s;
+        }
+        .btn-send-order:active { transform: scale(.98); }
+        .btn-send-order.sent {
+            background: var(--green-soft); color: var(--green);
+            cursor: default; pointer-events: none;
+        }
+
+        /* ===== CHAT INPUT ===== */
+        .chat-input-area { flex-shrink: 0; padding: 10px 12px; background: rgba(26,18,16,.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border-warm); }
+        .input-wrapper { display: flex; align-items: flex-end; gap: 8px; background: var(--bg-input); border: 1px solid var(--border-warm); border-radius: 24px; padding: 6px 6px 6px 16px; transition: border-color .2s; }
+        .input-wrapper:focus-within { border-color: rgba(196,99,42,.4); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .input-wrapper textarea { flex: 1; background: none; border: none; outline: none; color: var(--text-primary); font-family: 'DM Sans', sans-serif; font-size: 15px; resize: none; max-height: 120px; padding: 8px 0; line-height: 1.4; }
+        .input-wrapper textarea::placeholder { color: var(--text-secondary); }
+        .btn-send { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all .2s; font-size: 18px; }
+        .btn-send:disabled { background: rgba(255,255,255,.06); color: var(--text-secondary); cursor: not-allowed; }
+        .btn-send:not(:disabled):active { transform: scale(.92); }
+
+        /* ===== MIC BUTTON ===== */
+        .btn-mic { width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,.06); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all .2s; font-size: 18px; }
+        .btn-mic:active { transform: scale(.92); }
+        .btn-mic.listening { background: var(--red); color: #fff; animation: mic-pulse 1.2s ease-in-out infinite; }
+        .btn-mic.unsupported { display: none; }
+        @keyframes mic-pulse { 0%,100%{ box-shadow: 0 0 0 0 rgba(239,68,68,.4); } 50%{ box-shadow: 0 0 0 10px rgba(239,68,68,0); } }
+
+        /* ===== OVERLAY ===== */
+        .img-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 1000; align-items: center; justify-content: center; cursor: pointer; }
+        .img-overlay.active { display: flex; }
+        .img-overlay img { max-width: 95%; max-height: 90%; border-radius: 12px; object-fit: contain; }
+        .img-overlay .close-btn { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.15); border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+        /* ===== SHARED PAGE STYLES ===== */
+        .page-scroll { padding: 20px 16px; overflow-y: auto; background: var(--bg-chat); }
+        .page-title { font-size: 22px; font-weight: 600; letter-spacing: -.5px; margin-bottom: 4px; }
+        .page-subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 20px; }
+        .btn-submit { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: 24px; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; transition: all .2s; }
+        .btn-submit:active { transform: scale(.98); }
+        .btn-submit:disabled { background: rgba(255,255,255,.06); color: var(--text-secondary); cursor: not-allowed; }
+
+        /* ===== CARDÁPIO ===== */
+        .menu-card { background: var(--bg-ai-msg); border: 1px solid var(--border-warm); border-radius: 14px; padding: 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 14px; transition: border-color .2s; cursor: pointer; }
+        .menu-card:active { border-color: rgba(196,99,42,.4); }
+        .menu-card .menu-icon { width: 48px; height: 48px; border-radius: 10px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
+        .menu-card h6 { font-weight: 600; margin-bottom: 2px; font-size: 15px; color: var(--text-primary); }
+        .menu-card p { color: var(--text-secondary); font-size: 13px; margin: 0; line-height: 1.4; }
+        .cta-chat-link { text-align: center; color: var(--text-secondary); font-size: 13px; margin-top: 16px; padding: 12px; background: var(--accent-soft); border-radius: 12px; border: 1px solid var(--border-warm); }
+        .cta-chat-link i { color: var(--accent); }
+
+        /* ===== PEDIDOS (client) ===== */
+        .order-track-card {
+            background: var(--bg-ai-msg); border: 1px solid var(--border-warm);
+            border-radius: 14px; padding: 16px; margin-bottom: 12px;
+            animation: msg-in .3s ease-out;
+        }
+        .order-track-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .order-track-header .order-num { font-weight: 700; font-size: 16px; color: var(--accent); }
+        .order-track-items { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
+        .order-track-total { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+        .order-track-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-warm); font-size: 12px; color: var(--text-secondary); }
+
+        .status-badge {
+            padding: 3px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 600; white-space: nowrap;
+        }
+        .status-pendente { background: var(--yellow-soft); color: var(--yellow); }
+        .status-confirmado { background: var(--green-soft); color: var(--green); }
+        .status-cancelado { background: var(--red-soft); color: var(--red); }
+
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+        .empty-state i { font-size: 3rem; opacity: .3; margin-bottom: 12px; display: block; }
+        .empty-state p { font-size: 14px; }
+
+        /* ===== FEEDBACK ===== */
+        .fb-type-selector { display: flex; gap: 10px; margin-bottom: 20px; }
+        .fb-type-btn { flex: 1; padding: 16px 8px; border-radius: 14px; border: 1.5px solid var(--border-warm); background: var(--bg-ai-msg); text-align: center; cursor: pointer; transition: all .25s; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+        .fb-type-btn i { display: block; font-size: 1.6rem; margin-bottom: 6px; }
+        .fb-type-btn.elogio i { color: var(--green); }
+        .fb-type-btn.reclamacao i { color: var(--red); }
+        .fb-type-btn.selected.elogio { border-color: var(--green); background: var(--green-soft); color: var(--green); }
+        .fb-type-btn.selected.reclamacao { border-color: var(--red); background: var(--red-soft); color: var(--red); }
+        .fb-group { margin-bottom: 16px; }
+        .fb-group label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+        .fb-group textarea, .fb-group input[type="text"] { width: 100%; border: 1px solid var(--border-warm); border-radius: 10px; padding: 12px 14px; font-family: inherit; font-size: 15px; background: var(--bg-input); color: var(--text-primary); outline: none; transition: border-color .2s; }
+        .fb-group textarea:focus, .fb-group input:focus { border-color: rgba(196,99,42,.4); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .fb-group textarea { min-height: 100px; resize: vertical; }
+        .fb-group textarea::placeholder, .fb-group input::placeholder { color: var(--text-secondary); }
+        .feedback-success { text-align: center; padding: 40px 20px; animation: msg-in .4s ease; }
+        .feedback-success .icon-wrap { width: 64px; height: 64px; border-radius: 50%; background: var(--green-soft); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; font-size: 2rem; color: var(--green); }
+        .feedback-success h5 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+        .feedback-success p { color: var(--text-secondary); font-size: 14px; max-width: 260px; margin: 0 auto; }
+
+        /* ===== ADMIN ===== */
+        .admin-login-box { background: var(--bg-ai-msg); border: 1px solid var(--border-warm); border-radius: 16px; padding: 28px 20px; max-width: 340px; margin: 50px auto 0; text-align: center; }
+        .admin-login-box .lock-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; font-size: 1.5rem; color: var(--accent); }
+        .admin-login-box h5 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+        .admin-login-box p { font-size: 13px; color: var(--text-secondary); margin-bottom: 18px; }
+        .admin-login-box input { width: 100%; padding: 12px 14px; border: 1px solid var(--border-warm); border-radius: 10px; font-family: inherit; font-size: 15px; background: var(--bg-input); color: var(--text-primary); outline: none; margin-bottom: 12px; text-align: center; letter-spacing: 3px; }
+        .admin-login-box input:focus { border-color: rgba(196,99,42,.4); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .admin-login-box input.error { border-color: var(--red); animation: shake .4s ease; }
+        @keyframes shake { 10%,90%{transform:translateX(-2px);} 20%,80%{transform:translateX(4px);} 30%,50%,70%{transform:translateX(-4px);} 40%,60%{transform:translateX(4px);} }
+
+        .admin-panel { animation: msg-in .4s ease; }
+        .admin-stat-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+        .admin-stat { background: var(--bg-ai-msg); border: 1px solid var(--border-warm); border-radius: 12px; padding: 14px; }
+        .admin-stat .num { font-size: 24px; font-weight: 700; color: var(--accent); }
+        .admin-stat .label { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+        .admin-tabs { display: flex; gap: 4px; background: var(--bg-ai-msg); border-radius: 10px; padding: 4px; margin-bottom: 14px; border: 1px solid var(--border-warm); }
+        .admin-tab { flex: 1; padding: 10px 6px; border-radius: 8px; border: none; background: transparent; font-family: inherit; font-size: 12px; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: all .2s; }
+        .admin-tab.active { background: var(--accent); color: #fff; }
+        .admin-table { width: 100%; background: var(--bg-ai-msg); border: 1px solid var(--border-warm); border-radius: 12px; overflow: hidden; font-size: 13px; }
+        .admin-table thead { background: var(--accent-soft); }
+        .admin-table th { padding: 10px 12px; text-align: left; font-weight: 600; color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+        .admin-table td { padding: 10px 12px; border-top: 1px solid var(--border-warm); color: var(--text-secondary); vertical-align: top; }
+        .badge-elogio { background: var(--green-soft); color: var(--green); padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+        .badge-reclamacao { background: var(--red-soft); color: var(--red); padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+        .btn-logout { width: 100%; padding: 12px; margin-top: 20px; background: rgba(255,255,255,.04); color: var(--text-secondary); border: 1px solid var(--border-warm); border-radius: 24px; font-family: inherit; font-size: 14px; cursor: pointer; transition: all .2s; }
+        .btn-logout:active { background: rgba(255,255,255,.08); }
+
+        /* ===== GARÇOM PAGE (separate route in prod, tab in prototype) ===== */
+        .garcom-order-card {
+            background: var(--bg-ai-msg); border: 1px solid var(--border-warm);
+            border-radius: 14px; margin-bottom: 12px; overflow: hidden;
+            animation: msg-in .3s ease-out;
+        }
+        .garcom-order-top { padding: 14px 16px; cursor: pointer; }
+        .garcom-order-top .row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .garcom-order-top .order-num { font-weight: 700; font-size: 15px; color: var(--accent); }
+        .garcom-order-top .order-time { font-size: 12px; color: var(--text-secondary); }
+        .garcom-order-top .items-preview { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+        .garcom-order-detail {
+            display: none; padding: 0 16px 16px;
+            border-top: 1px solid var(--border-warm);
+        }
+        .garcom-order-detail.open { display: block; padding-top: 14px; }
+
+        .garcom-item-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 0; border-bottom: 1px solid var(--border-subtle);
+        }
+        .garcom-item-row:last-child { border-bottom: none; }
+        .garcom-item-qty-ctrl {
+            display: flex; align-items: center; gap: 6px;
+        }
+        .garcom-item-qty-ctrl button {
+            width: 28px; height: 28px; border-radius: 50%;
+            border: 1px solid var(--border-warm); background: var(--bg-input);
+            color: var(--text-primary); font-size: 16px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all .15s;
+        }
+        .garcom-item-qty-ctrl button:active { background: var(--accent-soft); }
+        .garcom-item-qty-ctrl .qty-val { font-weight: 700; font-size: 15px; color: var(--accent); min-width: 20px; text-align: center; }
+        .garcom-item-name { flex: 1; font-size: 14px; }
+        .garcom-item-price { font-size: 14px; font-weight: 600; color: rgba(255,255,255,.7); }
+        .garcom-item-removed { text-decoration: line-through; opacity: .4; }
+
+        .garcom-obs-area { margin-top: 12px; }
+        .garcom-obs-area label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+        .garcom-obs-area textarea { width: 100%; background: var(--bg-input); border: 1px solid var(--border-warm); border-radius: 8px; padding: 10px 12px; font-family: inherit; font-size: 14px; color: var(--text-primary); resize: none; min-height: 60px; outline: none; }
+        .garcom-obs-area textarea:focus { border-color: rgba(196,99,42,.4); }
+
+        .garcom-actions { display: flex; gap: 8px; margin-top: 14px; }
+        .garcom-actions button {
+            flex: 1; padding: 12px; border-radius: 24px; border: none;
+            font-family: inherit; font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: all .2s;
+        }
+        .garcom-actions button:active { transform: scale(.98); }
+        .btn-confirm-order { background: var(--green); color: #fff; }
+        .btn-cancel-order { background: var(--red-soft); color: var(--red); }
+
+        /* ===== BOTTOM NAV ===== */
+        .bottom-nav {
+            height: var(--nav-h);
+            display: flex; align-items: center; justify-content: space-around;
+            background: rgba(26, 18, 16, .95);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border-warm);
+            flex-shrink: 0; padding-bottom: var(--safe-bottom);
+        }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: none; font-family: inherit; font-size: 10px; color: var(--text-secondary); cursor: pointer; padding: 6px 10px; transition: color .2s; position: relative; }
+        .nav-item i { font-size: 20px; transition: transform .2s; }
+        .nav-item.active { color: var(--accent); }
+        .nav-item.active i { transform: scale(1.1); }
+        .nav-badge { position: absolute; top: 2px; right: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--red); color: #fff; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+        @media (min-width: 601px) {
+            .app-container { border-left: 1px solid var(--border-warm); border-right: 1px solid var(--border-warm); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- HEADER -->
+    <header class="chat-header">
+        <div class="brand">
+            <img src="/static/Logo-Divina3.png" alt="Divina Comida" class="brand-logo">
+            <div>
+                <div class="brand-name">Divina Comida</div>
+                <div class="status"><span class="dot"></span> Assistente de Cardápio</div>
+            </div>
+        </div>
+        <button class="btn-clear" onclick="clearChat()" title="Nova conversa">
+            <i class="bi bi-arrow-counterclockwise"></i>
+        </button>
+    </header>
+
+    <!-- PAGE: CHAT -->
+    <section id="page-chat" class="page-section active">
+        <div class="chat-messages" id="chatMessages">
+            <div class="welcome" id="welcomeScreen">
+                <img src="/static/Logo-Divina3.png" alt="Divina Comida" class="welcome-logo">
+                <h2>Assistente de Cardápio</h2>
+                <p>Tire dúvidas sobre receitas, custos, fichas técnicas e planejamento do cardápio.</p>
+                <div class="suggestions">
+                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Lançamento de novos pratos</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos com camarão</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Entradas</div>
+                    <div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos promocionais</div>
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <div class="input-wrapper">
+                <textarea id="msgInput" rows="1" placeholder="Pergunte sobre cardápio, receitas, custos..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                <button class="btn-mic" id="btnMic" onclick="toggleVoice()" title="Falar"><i class="bi bi-mic-fill"></i></button>
+                <button class="btn-send" id="btnSend" onclick="sendMessage()" disabled><i class="bi bi-arrow-up"></i></button>
+            </div>
+        </div>
+    </section>
+
+    <!-- PAGE: CARDÁPIO -->
+    <section id="page-cardapio" class="page-section page-scroll">
+        <h2 class="page-title">Nosso Cardápio</h2>
+        <p class="page-subtitle">Confira nossas categorias e pergunte no chat para saber mais</p>
+        <div class="menu-card" onclick="goToChatWith('Quais são os pratos principais?')"><div class="menu-icon">🥩</div><div><h6>Pratos Principais</h6><p>Carnes, aves e peixes com tempero especial</p></div></div>
+        <div class="menu-card" onclick="goToChatWith('Quais são as entradas e saladas?')"><div class="menu-icon">🥗</div><div><h6>Entradas & Saladas</h6><p>Opções leves para abrir o apetite</p></div></div>
+        <div class="menu-card" onclick="goToChatWith('Quais são as sobremesas?')"><div class="menu-icon">🍰</div><div><h6>Sobremesas</h6><p>Doces caseiros e sobremesas artesanais</p></div></div>
+        <div class="menu-card" onclick="goToChatWith('Quais bebidas vocês têm?')"><div class="menu-icon">🍹</div><div><h6>Bebidas</h6><p>Sucos naturais, drinks e refrigerantes</p></div></div>
+        <div class="cta-chat-link"><i class="bi bi-chat-dots"></i> Toque em uma categoria ou pergunte no chat para detalhes e preços</div>
+    </section>
+
+    <!-- PAGE: MEUS PEDIDOS (client) -->
+    <section id="page-pedidos" class="page-section page-scroll">
+        <h2 class="page-title">Meus Pedidos</h2>
+        <p class="page-subtitle">Acompanhe o status dos seus pedidos</p>
+        <div id="clientOrdersList">
+            <div class="empty-state"><i class="bi bi-receipt"></i><p>Você ainda não enviou pedidos.<br>Use o chat para montar seu pedido!</p></div>
+        </div>
+    </section>
+
+    <!-- PAGE: FEEDBACK -->
+    <section id="page-feedback" class="page-section page-scroll">
+        <h2 class="page-title">Sua Opinião</h2>
+        <p class="page-subtitle">Nos ajude a melhorar! Seu feedback é muito importante.</p>
+        <div id="feedbackFormArea">
+            <div class="fb-type-selector">
+                <div class="fb-type-btn elogio" id="btnElogio" onclick="selectFbType('elogio')"><i class="bi bi-hand-thumbs-up-fill"></i> Elogio</div>
+                <div class="fb-type-btn reclamacao" id="btnReclamacao" onclick="selectFbType('reclamacao')"><i class="bi bi-hand-thumbs-down-fill"></i> Reclamação</div>
+            </div>
+            <div class="fb-group"><label>Seu nome <span style="color:var(--text-secondary)">(opcional)</span></label><input type="text" id="fbName" placeholder="Como podemos te chamar?"></div>
+            <div class="fb-group"><label>Sua mensagem *</label><textarea id="fbMessage" placeholder="Conte-nos sua experiência..." oninput="checkFbReady()"></textarea></div>
+            <button class="btn-submit" id="btnFbSubmit" onclick="submitFeedback()" disabled>Enviar Feedback</button>
+        </div>
+        <div id="feedbackSuccess" class="feedback-success" style="display:none;">
+            <div class="icon-wrap"><i class="bi bi-check-lg"></i></div>
+            <h5>Obrigado!</h5>
+            <p>Seu feedback foi registrado com sucesso. Valorizamos muito sua opinião!</p>
+            <button class="btn-submit" style="margin-top:20px;max-width:200px;margin-left:auto;margin-right:auto;display:block;" onclick="resetFeedback()">Enviar outro</button>
+        </div>
+    </section>
+
+    <!-- PAGE: GARÇOM -->
+    <section id="page-garcom" class="page-section page-scroll">
+        <div id="garcomLogin" class="admin-login-box">
+            <div class="lock-icon"><i class="bi bi-person-badge-fill"></i></div>
+            <h5>Área do Garçom</h5>
+            <p>Digite seu PIN de acesso</p>
+            <input type="password" id="garcomPin" placeholder="••••" maxlength="4" onkeydown="if(event.key==='Enter') garcomDoLogin()">
+            <button class="btn-submit" onclick="garcomDoLogin()">Entrar</button>
+        </div>
+        <div id="garcomPanel" class="admin-panel" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                <h2 class="page-title" style="margin:0;">Pedidos Pendentes</h2>
+                <span id="garcomName" style="font-size:12px;color:var(--accent);"></span>
+            </div>
+            <div id="garcomOrdersList"></div>
+            <button class="btn-logout" onclick="garcomDoLogout()"><i class="bi bi-box-arrow-left"></i> Sair</button>
+        </div>
+    </section>
+
+    <!-- PAGE: ADMIN -->
+    <section id="page-admin" class="page-section page-scroll">
+        <div id="adminLogin" class="admin-login-box">
+            <div class="lock-icon"><i class="bi bi-shield-lock-fill"></i></div>
+            <h5>Área do Proprietário</h5>
+            <p>Digite a senha de acesso</p>
+            <input type="password" id="adminPass" placeholder="••••••" onkeydown="if(event.key==='Enter') adminDoLogin()">
+            <button class="btn-submit" onclick="adminDoLogin()">Entrar</button>
+        </div>
+        <div id="adminPanel" class="admin-panel" style="display:none;">
+            <h2 class="page-title" style="margin-bottom:14px;">Painel — Divina Comida</h2>
+            <div class="admin-stat-cards">
+                <div class="admin-stat"><div class="num" id="statQueries">24</div><div class="label">Consultas hoje</div></div>
+                <div class="admin-stat"><div class="num" id="statFeedbacks">7</div><div class="label">Feedbacks</div></div>
+                <div class="admin-stat"><div class="num" id="statPedidos">0</div><div class="label">Pedidos</div></div>
+                <div class="admin-stat"><div class="num" id="statReclamacoes">2</div><div class="label">Reclamações</div></div>
+            </div>
+            <div class="admin-tabs">
+                <button class="admin-tab active" onclick="showAdminTab('queries',this)"><i class="bi bi-chat-text"></i> Consultas</button>
+                <button class="admin-tab" onclick="showAdminTab('feedbacks',this)"><i class="bi bi-star"></i> Feedbacks</button>
+                <button class="admin-tab" onclick="showAdminTab('orders',this)"><i class="bi bi-receipt"></i> Pedidos</button>
+            </div>
+            <div id="adminQueries">
+                <table class="admin-table"><thead><tr><th>Hora</th><th>Pergunta do Cliente</th></tr></thead>
+                <tbody>
+                    <tr><td>14:32</td><td>Qual o prato do dia?</td></tr>
+                    <tr><td>14:18</td><td>Vocês aceitam PIX?</td></tr>
+                    <tr><td>13:55</td><td>Tem mesa disponível às 20h?</td></tr>
+                    <tr><td>13:40</td><td>O filé mignon vem com que acompanhamento?</td></tr>
+                    <tr><td>12:22</td><td>Fazem entrega na zona sul?</td></tr>
+                </tbody></table>
+            </div>
+            <div id="adminFeedbacks" style="display:none;">
+                <table class="admin-table"><thead><tr><th>Tipo</th><th>Mensagem</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="badge-elogio">Elogio</span></td><td>Comida maravilhosa! Atendimento nota 10.</td></tr>
+                    <tr><td><span class="badge-reclamacao">Reclamação</span></td><td>O pedido demorou 50 minutos.</td></tr>
+                    <tr><td><span class="badge-elogio">Elogio</span></td><td>Melhor moqueca da cidade!</td></tr>
+                </tbody></table>
+            </div>
+            <div id="adminOrders" style="display:none;"><div id="adminOrdersTable"></div></div>
+            <button class="btn-logout" onclick="adminDoLogout()"><i class="bi bi-box-arrow-left"></i> Sair</button>
+        </div>
+    </section>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="switchPage('page-chat',this)"><i class="bi bi-chat-heart-fill"></i><span>Chat</span></button>
+        <button class="nav-item" onclick="switchPage('page-cardapio',this)"><i class="bi bi-book-fill"></i><span>Cardápio</span></button>
+        <button class="nav-item" onclick="switchPage('page-pedidos',this)"><i class="bi bi-receipt"></i><span>Pedidos</span><span class="nav-badge" id="badgePedidos" style="display:none;">0</span></button>
+        <button class="nav-item" onclick="switchPage('page-feedback',this)"><i class="bi bi-star-fill"></i><span>Feedback</span></button>
+        <button class="nav-item" onclick="switchPage('page-garcom',this)"><i class="bi bi-person-badge-fill"></i><span>Garçom</span><span class="nav-badge" id="badgeGarcom" style="display:none;">0</span></button>
+        <button class="nav-item" onclick="switchPage('page-admin',this)"><i class="bi bi-gear-fill"></i><span>Admin</span></button>
+    </nav>
+</div>
+
+<!-- OVERLAY -->
+<div class="img-overlay" id="imgOverlay" onclick="closeOverlay(event)">
+    <button class="close-btn" onclick="closeOverlay(event)"><i class="bi bi-x"></i></button>
+    <img id="overlayImg" src="" alt="">
+</div>
+
+<script>
+    // ========================================================
+    //  NAVIGATION
+    // ========================================================
+    function switchPage(pageId, navBtn) {
+        document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+        navBtn.classList.add('active');
+        if (pageId === 'page-pedidos') renderClientOrders();
+        if (pageId === 'page-garcom' && garcomLoggedIn) renderGarcomOrders();
+        if (pageId === 'page-admin') updateAdminStats();
+    }
+    function goToChatWith(text) {
+        const chatBtn = document.querySelector('.nav-item');
+        switchPage('page-chat', chatBtn);
+        msgInput.value = text; btnSend.disabled = false;
+        sendMessage();
+    }
+
+    // ========================================================
+    //  ORDER STORE (in-memory, simulates DB)
+    // ========================================================
+    let orderCounter = 0;
+    const orders = []; // { id, number, items[], total, totalServico, status, sessionId, createdAt, garcomObs, garcomName }
+
+    function createOrder(orderData) {
+        orderCounter++;
+        const order = {
+            id: 'ord_' + Date.now(),
+            number: String(orderCounter).padStart(3, '0'),
+            items: orderData.items.map(it => ({ ...it, qtyFinal: it.quantidade })),
+            total: orderData.total_estimado,
+            totalServico: orderData.total_com_servico,
+            status: 'pendente',
+            sessionId: sessionId,
+            createdAt: new Date(),
+            garcomObs: '',
+            garcomName: '',
+        };
+        orders.push(order);
+        updateBadges();
+        return order;
+    }
+
+    function updateBadges() {
+        const pending = orders.filter(o => o.status === 'pendente').length;
+        const myOrders = orders.filter(o => o.sessionId === sessionId).length;
+        const bp = document.getElementById('badgePedidos');
+        const bg = document.getElementById('badgeGarcom');
+        if (myOrders > 0) { bp.textContent = myOrders; bp.style.display = 'flex'; } else { bp.style.display = 'none'; }
+        if (pending > 0) { bg.textContent = pending; bg.style.display = 'flex'; } else { bg.style.display = 'none'; }
+    }
+
+    // ========================================================
+    //  CHAT
+    // ========================================================
+    const sessionId = crypto.randomUUID();
+    let isStreaming = false;
+    const chatMessages = document.getElementById('chatMessages');
+    const msgInput = document.getElementById('msgInput');
+    const btnSend = document.getElementById('btnSend');
+
+    function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; btnSend.disabled = !el.value.trim() || isStreaming; }
+    function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+
+    let autoScrollEnabled = true;
+    chatMessages.addEventListener('touchstart', () => { autoScrollEnabled = false; showScrollDownBtn(true); }, { passive: true });
+    chatMessages.addEventListener('wheel', () => { autoScrollEnabled = false; showScrollDownBtn(true); }, { passive: true });
+    chatMessages.addEventListener('scroll', () => { if (chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 30) { autoScrollEnabled = true; showScrollDownBtn(false); } }, { passive: true });
+    function scrollToBottom(force) { if (force || autoScrollEnabled) chatMessages.scrollTop = chatMessages.scrollHeight; }
+    function showScrollDownBtn(visible) {
+        let btn = document.getElementById('scrollDownBtn');
+        if (!btn) { btn = document.createElement('button'); btn.id = 'scrollDownBtn'; btn.innerHTML = '<i class="bi bi-chevron-down"></i>'; btn.addEventListener('click', e => { e.stopPropagation(); autoScrollEnabled = true; chatMessages.scrollTop = chatMessages.scrollHeight; showScrollDownBtn(false); }); Object.assign(btn.style, { position:'absolute',bottom:'calc(130px + var(--safe-bottom))',right:'12px',width:'44px',height:'44px',borderRadius:'50%',border:'1px solid rgba(196,99,42,.3)',background:'rgba(30,22,20,.95)',color:'#fff',fontSize:'18px',display:'none',alignItems:'center',justifyContent:'center',cursor:'pointer',zIndex:'20',boxShadow:'0 2px 12px rgba(0,0,0,.5)' }); document.querySelector('.app-container').appendChild(btn); }
+        btn.style.display = visible ? 'flex' : 'none';
+    }
+
+    function getTime() { return new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }); }
+    function openOverlay(src) { document.getElementById('overlayImg').src = src; document.getElementById('imgOverlay').classList.add('active'); }
+    function closeOverlay(e) { if (e) e.stopPropagation(); document.getElementById('imgOverlay').classList.remove('active'); }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); });
+
+    function formatText(text) {
+        text = text.replace(/\[FOTO:([^\]]+)\]/g, (m, fn) => { const src = `/static/pratos/${fn.trim()}`; return `<img src="${src}" alt="Foto do prato" class="dish-image" onclick="openOverlay('${src}')" onerror="this.style.display='none'"><div class="dish-caption">Toque na imagem para ampliar</div>`; });
+        return text.replace(/```(\w*)\n([\s\S]*?)```/g,'<pre><code>$2</code></pre>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/\n/g,'<br>');
+    }
+
+    // ===== ORDER CARD (with Send button) =====
+    function renderOrderCard(jsonStr) {
+        try {
+            const order = JSON.parse(jsonStr);
+            if (!order.items || !order.items.length) return null;
+            const customizedCount = order.items.filter(i => i.observacao && i.observacao.trim()).length;
+            const itemsHtml = order.items.map(item => {
+                const sub = (item.quantidade * item.preco_unitario).toFixed(2);
+                const obs = item.observacao && item.observacao.trim() ? `<div class="order-item-obs">✏️ ${item.observacao}</div>` : '';
+                return `<div class="order-item"><div class="order-item-left"><span class="order-item-qty">${item.quantidade}×</span><div class="order-item-info"><div class="order-item-name">${item.nome}</div>${obs}</div></div><span class="order-item-price">R$ ${Number(sub).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span></div>`;
+            }).join('');
+            const total = Number(order.total_estimado||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
+            const totalS = Number(order.total_com_servico||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
+            const badge = customizedCount > 0 ? `<span style="font-size:11px;color:rgba(255,255,255,.5);margin-left:auto;">${customizedCount} personalizado${customizedCount>1?'s':''}</span>` : '';
+
+            const cardId = 'oc_' + Date.now();
+            const card = document.createElement('div');
+            card.className = 'order-card';
+            card.id = cardId;
+            card.innerHTML = `
+                <div class="order-card-header"><span class="icon">🧾</span><span class="title">Resumo do Pedido</span>${badge}</div>
+                <div class="order-items">${itemsHtml}</div>
+                <div class="order-divider"></div>
+                <div class="order-totals">
+                    <div class="order-total-row"><span>Subtotal</span><span>R$ ${total}</span></div>
+                    <div class="order-total-row"><span>Taxa de serviço (10%)</span><span>R$ ${Number(order.total_com_servico-order.total_estimado||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span></div>
+                    <div class="order-total-row final"><span class="label">Total</span><span>R$ ${totalS}</span></div>
+                </div>
+                <button class="btn-send-order" onclick="sendOrder('${cardId}')">
+                    <i class="bi bi-send-fill"></i> Enviar Pedido para a Cozinha
+                </button>`;
+
+            // Store raw data on the element
+            card._orderData = order;
+            return card;
+        } catch (e) { return null; }
+    }
+
+    function sendOrder(cardId) {
+        const card = document.getElementById(cardId);
+        if (!card || !card._orderData) return;
+        const newOrder = createOrder(card._orderData);
+        const btn = card.querySelector('.btn-send-order');
+        btn.innerHTML = `<i class="bi bi-check-circle-fill"></i> Pedido #${newOrder.number} enviado!`;
+        btn.classList.add('sent');
+
+        // Notify in chat
+        const notifRow = document.createElement('div');
+        notifRow.className = 'msg-row ai';
+        notifRow.innerHTML = `<div class="msg-bubble" style="background:var(--green-soft);border-color:var(--green);color:var(--green);font-size:14px;"><i class="bi bi-check-circle-fill"></i> Pedido <strong>#${newOrder.number}</strong> enviado com sucesso! O garçom virá conferir na sua mesa. Acompanhe na aba <strong>Pedidos</strong>.</div>`;
+        chatMessages.appendChild(notifRow);
+        scrollToBottom();
+    }
+
+    function extractOrderBlock(text) {
+        const o = '<<ORDER_JSON>>', c = '<</ORDER_JSON>>';
+        const s = text.indexOf(o), e = text.indexOf(c);
+        if (s === -1 || e === -1 || e <= s) return { visibleText: text, orderJson: null };
+        return { visibleText: [text.slice(0,s).trim(), text.slice(e+c.length).trim()].filter(Boolean).join('\n'), orderJson: text.slice(s+o.length,e).trim() };
+    }
+
+    function addMessage(text, role) {
+        const ws = document.getElementById('welcomeScreen'); if (ws) ws.remove();
+        const row = document.createElement('div'); row.className = `msg-row ${role}`;
+        const bubble = document.createElement('div'); bubble.className = 'msg-bubble'; bubble.innerHTML = formatText(text);
+        const time = document.createElement('div'); time.className = 'msg-time'; time.textContent = getTime();
+        row.appendChild(bubble); row.appendChild(time); chatMessages.appendChild(row); scrollToBottom();
+        return bubble;
+    }
+
+    let typingShownAt = 0;
+    function showTyping() {
+        const ws = document.getElementById('welcomeScreen'); if (ws) ws.remove();
+        const row = document.createElement('div'); row.className = 'msg-row ai'; row.id = 'typingRow';
+        const bubble = document.createElement('div'); bubble.className = 'msg-bubble';
+        const ind = document.createElement('div'); ind.className = 'typing-indicator';
+        for (let i = 0; i < 3; i++) { const l = document.createElement('div'); l.className = 'shimmer-line'; ind.appendChild(l); }
+        bubble.appendChild(ind); row.appendChild(bubble); chatMessages.appendChild(row);
+        typingShownAt = Date.now(); scrollToBottom(true);
+    }
+    function removeTyping() { return new Promise(r => { setTimeout(() => { const el = document.getElementById('typingRow'); if (el) el.remove(); r(); }, Math.max(0, 600 - (Date.now()-typingShownAt))); }); }
+
+    async function sendMessage() {
+        const text = msgInput.value.trim();
+        if (!text || isStreaming) return;
+        msgInput.value = ''; msgInput.style.height = 'auto';
+        btnSend.disabled = true; isStreaming = true;
+        addMessage(text, 'user');
+        autoScrollEnabled = true; showScrollDownBtn(false);
+        showTyping();
+        try {
+            const res = await fetch('/api/chat/stream', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({message:text,session_id:sessionId}) });
+            await removeTyping();
+            const aiBubble = addMessage('', 'ai');
+            let fullText = '', orderCardInserted = false;
+            const reader = res.body.getReader(), decoder = new TextDecoder();
+            while (true) {
+                const {done,value} = await reader.read(); if (done) break;
+                for (const line of decoder.decode(value,{stream:true}).split('\n')) {
+                    if (!line.startsWith('data: ')) continue;
+                    const raw = line.slice(6).trim(); if (!raw) continue;
+                    try {
+                        const data = JSON.parse(raw);
+                        if (data.type==='delta') { fullText += data.text; aiBubble.innerHTML = formatText(extractOrderBlock(fullText).visibleText); scrollToBottom(); }
+                        else if (data.type==='error') { aiBubble.innerHTML = formatText('⚠️ '+data.text); }
+                        else if (data.type==='done' && !orderCardInserted) {
+                            const {visibleText,orderJson} = extractOrderBlock(fullText);
+                            aiBubble.innerHTML = formatText(visibleText);
+                            if (orderJson) { const card = renderOrderCard(orderJson); if (card) { chatMessages.appendChild(card); orderCardInserted = true; scrollToBottom(); } }
+                        }
+                    } catch {}
+                }
+            }
+            if (!orderCardInserted) { const {visibleText,orderJson} = extractOrderBlock(fullText); aiBubble.innerHTML = formatText(visibleText); if (orderJson) { const card = renderOrderCard(orderJson); if (card) { chatMessages.appendChild(card); scrollToBottom(); } } }
+        } catch { await removeTyping(); addMessage('⚠️ Erro de conexão. Tente novamente.', 'ai'); }
+        isStreaming = false; btnSend.disabled = !msgInput.value.trim();
+    }
+
+    function sendSuggestion(el) { msgInput.value = el.textContent; sendMessage(); }
+    async function clearChat() {
+        try { await fetch('/api/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId})}); } catch {}
+        chatMessages.innerHTML = `<div class="welcome" id="welcomeScreen"><img src="/static/Logo-Divina3.png" alt="Divina Comida" class="welcome-logo"><h2>Assistente de Cardápio</h2><p>Tire dúvidas sobre receitas, custos, fichas técnicas e planejamento do cardápio.</p><div class="suggestions"><div class="suggestion-chip" onclick="sendSuggestion(this)">Lançamento de novos pratos</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos com camarão</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Entradas</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Pratos promocionais</div></div></div>`;
+    }
+    msgInput.addEventListener('input', () => { btnSend.disabled = !msgInput.value.trim() || isStreaming; });
+
+    // ========================================================
+    //  VOICE INPUT (Web Speech API)
+    // ========================================================
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const btnMic = document.getElementById('btnMic');
+    let recognition = null;
+    let isListening = false;
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'pt-BR';
+        recognition.continuous = false;
+        recognition.interimResults = true;
+
+        recognition.onstart = () => {
+            isListening = true;
+            btnMic.classList.add('listening');
+            btnMic.title = 'Parar de ouvir';
+            msgInput.placeholder = '🎙️ Ouvindo...';
+        };
+
+        recognition.onresult = (e) => {
+            let interim = '';
+            let final = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+                const transcript = e.results[i][0].transcript;
+                if (e.results[i].isFinal) {
+                    final += transcript;
+                } else {
+                    interim += transcript;
+                }
+            }
+            if (final) {
+                // Append to existing text (user might have typed something already)
+                const current = msgInput.value;
+                msgInput.value = current ? current + ' ' + final : final;
+                btnSend.disabled = false;
+            } else if (interim) {
+                // Show interim as placeholder feedback
+                msgInput.placeholder = interim;
+            }
+        };
+
+        recognition.onend = () => {
+            isListening = false;
+            btnMic.classList.remove('listening');
+            btnMic.title = 'Falar';
+            msgInput.placeholder = 'Pergunte sobre cardápio, receitas, custos...';
+            // Auto-send if we got text and user isn't still typing
+            if (msgInput.value.trim()) {
+                btnSend.disabled = false;
+            }
+        };
+
+        recognition.onerror = (e) => {
+            isListening = false;
+            btnMic.classList.remove('listening');
+            btnMic.title = 'Falar';
+            msgInput.placeholder = 'Pergunte sobre cardápio, receitas, custos...';
+            if (e.error === 'not-allowed') {
+                // Brief feedback that mic was denied
+                msgInput.placeholder = '⚠️ Permissão do microfone negada';
+                setTimeout(() => { msgInput.placeholder = 'Pergunte sobre cardápio, receitas, custos...'; }, 3000);
+            }
+        };
+    } else {
+        // Browser doesn't support Speech Recognition
+        btnMic.classList.add('unsupported');
+    }
+
+    function toggleVoice() {
+        if (!recognition || isStreaming) return;
+        if (isListening) {
+            recognition.stop();
+        } else {
+            recognition.start();
+        }
+    }
+
+    // ========================================================
+    //  CLIENT ORDERS
+    // ========================================================
+    function renderClientOrders() {
+        const container = document.getElementById('clientOrdersList');
+        const myOrders = orders.filter(o => o.sessionId === sessionId).reverse();
+        if (!myOrders.length) { container.innerHTML = '<div class="empty-state"><i class="bi bi-receipt"></i><p>Você ainda não enviou pedidos.<br>Use o chat para montar seu pedido!</p></div>'; return; }
+        container.innerHTML = myOrders.map(o => {
+            const statusClass = `status-${o.status}`;
+            const statusLabel = o.status === 'pendente' ? 'Aguardando garçom' : o.status === 'confirmado' ? 'Confirmado' : 'Cancelado';
+            const itemsText = o.items.filter(it => it.qtyFinal > 0).map(it => `${it.qtyFinal}× ${it.nome}`).join(', ');
+            const finalTotal = o.status === 'confirmado' ? calcFinalTotal(o) : Number(o.totalServico||0);
+            const obsHtml = o.garcomObs ? `<div style="margin-top:8px;font-size:12px;color:#e8a76a;background:rgba(196,99,42,.08);padding:6px 10px;border-radius:8px;border-left:2px solid var(--accent);"><strong>Obs garçom:</strong> ${o.garcomObs}</div>` : '';
+            return `<div class="order-track-card">
+                <div class="order-track-header"><span class="order-num">#${o.number}</span><span class="status-badge ${statusClass}">${statusLabel}</span></div>
+                <div class="order-track-items">${itemsText}</div>
+                <div class="order-track-total">Total: R$ ${finalTotal.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+                ${obsHtml}
+                <div class="order-track-footer"><span>${o.createdAt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>${o.garcomName ? `<span>Garçom: ${o.garcomName}</span>` : ''}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function calcFinalTotal(order) {
+        const sub = order.items.reduce((s,it) => s + (it.qtyFinal * it.preco_unitario), 0);
+        return sub * 1.1;
+    }
+
+    // ========================================================
+    //  FEEDBACK
+    // ========================================================
+    let fbType = null;
+    function selectFbType(t) { fbType = t; document.getElementById('btnElogio').classList.toggle('selected',t==='elogio'); document.getElementById('btnReclamacao').classList.toggle('selected',t==='reclamacao'); checkFbReady(); }
+    function checkFbReady() { document.getElementById('btnFbSubmit').disabled = !(fbType && document.getElementById('fbMessage').value.trim().length > 3); }
+    function submitFeedback() {
+        if (!fbType || !document.getElementById('fbMessage').value.trim()) return;
+        document.getElementById('feedbackFormArea').style.display = 'none';
+        document.getElementById('feedbackSuccess').style.display = 'block';
+    }
+    function resetFeedback() { fbType = null; document.getElementById('fbName').value=''; document.getElementById('fbMessage').value=''; document.getElementById('btnElogio').classList.remove('selected'); document.getElementById('btnReclamacao').classList.remove('selected'); document.getElementById('btnFbSubmit').disabled=true; document.getElementById('feedbackFormArea').style.display='block'; document.getElementById('feedbackSuccess').style.display='none'; }
+
+    // ========================================================
+    //  GARÇOM
+    // ========================================================
+    const GARCOM_PINS = { '1111': 'Carlos', '2222': 'Ana', '3333': 'Pedro' };
+    let garcomLoggedIn = false;
+    let garcomCurrentName = '';
+
+    function garcomDoLogin() {
+        const inp = document.getElementById('garcomPin');
+        const name = GARCOM_PINS[inp.value];
+        if (name) {
+            garcomLoggedIn = true; garcomCurrentName = name;
+            document.getElementById('garcomLogin').style.display = 'none';
+            document.getElementById('garcomPanel').style.display = 'block';
+            document.getElementById('garcomName').textContent = `Olá, ${name}`;
+            renderGarcomOrders();
+        } else {
+            inp.classList.add('error'); inp.value = ''; inp.placeholder = 'PIN inválido';
+            setTimeout(() => { inp.classList.remove('error'); inp.placeholder = '••••'; }, 2000);
+        }
+    }
+    function garcomDoLogout() { garcomLoggedIn = false; garcomCurrentName = ''; document.getElementById('garcomPanel').style.display = 'none'; document.getElementById('garcomLogin').style.display = 'block'; document.getElementById('garcomPin').value = ''; }
+
+    function renderGarcomOrders() {
+        const container = document.getElementById('garcomOrdersList');
+        const pending = orders.filter(o => o.status === 'pendente');
+        if (!pending.length) { container.innerHTML = '<div class="empty-state"><i class="bi bi-check-circle"></i><p>Nenhum pedido pendente no momento.</p></div>'; return; }
+        container.innerHTML = pending.map(o => {
+            const preview = o.items.map(it => `${it.quantidade}× ${it.nome}`).join(', ');
+            const itemRows = o.items.map((it, idx) => `
+                <div class="garcom-item-row ${it.qtyFinal <= 0 ? 'garcom-item-removed':''}" id="gi_${o.id}_${idx}">
+                    <div class="garcom-item-qty-ctrl">
+                        <button onclick="garcomQty('${o.id}',${idx},-1)">−</button>
+                        <span class="qty-val">${it.qtyFinal}</span>
+                        <button onclick="garcomQty('${o.id}',${idx},1)">+</button>
+                    </div>
+                    <span class="garcom-item-name">${it.nome}</span>
+                    <span class="garcom-item-price">R$ ${(it.qtyFinal * it.preco_unitario).toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+                </div>`).join('');
+            return `<div class="garcom-order-card">
+                <div class="garcom-order-top" onclick="toggleGarcomDetail('gd_${o.id}')">
+                    <div class="row-top"><span class="order-num">#${o.number}</span><span class="order-time">${o.createdAt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div>
+                    <div class="items-preview">${preview}</div>
+                </div>
+                <div class="garcom-order-detail" id="gd_${o.id}">
+                    ${itemRows}
+                    <div class="garcom-obs-area">
+                        <label>Observação do garçom</label>
+                        <textarea id="gobs_${o.id}" placeholder="Ex: mesa 12, cliente pediu ponto mal passado...">${o.garcomObs}</textarea>
+                    </div>
+                    <div class="garcom-actions">
+                        <button class="btn-cancel-order" onclick="garcomAction('${o.id}','cancelado')"><i class="bi bi-x-lg"></i> Cancelar</button>
+                        <button class="btn-confirm-order" onclick="garcomAction('${o.id}','confirmado')"><i class="bi bi-check-lg"></i> Confirmar</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleGarcomDetail(id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('open');
+    }
+
+    function garcomQty(orderId, itemIdx, delta) {
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
+        const item = order.items[itemIdx];
+        item.qtyFinal = Math.max(0, item.qtyFinal + delta);
+        renderGarcomOrders();
+        // Re-open the detail
+        const detail = document.getElementById(`gd_${orderId}`);
+        if (detail) detail.classList.add('open');
+    }
+
+    function garcomAction(orderId, status) {
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
+        const obsEl = document.getElementById(`gobs_${orderId}`);
+        if (obsEl) order.garcomObs = obsEl.value.trim();
+        order.garcomName = garcomCurrentName;
+        order.status = status;
+        updateBadges();
+        renderGarcomOrders();
+    }
+
+    // ========================================================
+    //  ADMIN
+    // ========================================================
+    const ADMIN_PASS = '1234';
+    function adminDoLogin() {
+        const inp = document.getElementById('adminPass');
+        if (inp.value === ADMIN_PASS) { document.getElementById('adminLogin').style.display='none'; document.getElementById('adminPanel').style.display='block'; updateAdminStats(); renderAdminOrders(); }
+        else { inp.classList.add('error'); inp.value=''; inp.placeholder='Senha incorreta'; setTimeout(()=>{inp.classList.remove('error');inp.placeholder='••••••';},2000); }
+    }
+    function adminDoLogout() { document.getElementById('adminPanel').style.display='none'; document.getElementById('adminLogin').style.display='block'; document.getElementById('adminPass').value=''; }
+
+    function showAdminTab(tab, btn) {
+        document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active')); btn.classList.add('active');
+        document.getElementById('adminQueries').style.display = tab==='queries'?'block':'none';
+        document.getElementById('adminFeedbacks').style.display = tab==='feedbacks'?'block':'none';
+        document.getElementById('adminOrders').style.display = tab==='orders'?'block':'none';
+        if (tab === 'orders') renderAdminOrders();
+    }
+
+    function updateAdminStats() { document.getElementById('statPedidos').textContent = orders.length; }
+
+    function renderAdminOrders() {
+        const container = document.getElementById('adminOrdersTable');
+        if (!orders.length) { container.innerHTML = '<div class="empty-state"><i class="bi bi-receipt"></i><p>Nenhum pedido registrado.</p></div>'; return; }
+        const rows = orders.slice().reverse().map(o => {
+            const statusClass = `status-${o.status}`;
+            const label = o.status === 'pendente' ? 'Pendente' : o.status === 'confirmado' ? 'Confirmado' : 'Cancelado';
+            const items = o.items.filter(it => it.qtyFinal > 0).map(it => `${it.qtyFinal}× ${it.nome}`).join(', ');
+            return `<tr><td><strong style="color:var(--accent)">#${o.number}</strong></td><td>${items || '<em>vazio</em>'}</td><td><span class="status-badge ${statusClass}">${label}</span></td><td>${o.garcomName||'—'}</td></tr>`;
+        }).join('');
+        container.innerHTML = `<table class="admin-table"><thead><tr><th>#</th><th>Itens</th><th>Status</th><th>Garçom</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+</script>
+
+</body>
+</html>
