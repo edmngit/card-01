@@ -32,9 +32,14 @@ def init_db(base_dir: str):
         # pool_pre_ping=True ajuda a recuperar conexões perdidas automaticamente
         _ENGINE = create_engine(db_url, pool_pre_ping=True)
         
-        # Teste de conexão simples
+        # Teste de conexão simples + diagnóstico de usuário/host
         with _ENGINE.connect() as conn:
             conn.execute(text("SELECT 1"))
+            info = conn.execute(text("""
+                SELECT current_user, current_database(), 
+                       inet_server_addr()::text, current_schema()
+            """)).fetchone()
+            print(f"🔎 [DB DIAG] user={info[0]} db={info[1]} host_addr={info[2]} schema={info[3]}")
         
         _DB_ENABLED = True
         print("✅ [DB SUCCESS] Conectado ao PostgreSQL com sucesso.")
@@ -163,6 +168,10 @@ def salvar_feedback(session_id: Optional[str], tipo: str, nome: Optional[str], m
 
     with _ENGINE.connect() as conn:
         try:
+            # Diagnóstico: confirma quem está conectado nesta conexão específica
+            who = conn.execute(text("SELECT current_user, current_database()")).fetchone()
+            print(f"🔎 [DB DIAG insert feedback] user={who[0]} db={who[1]}")
+
             res = conn.execute(
                 text("""
                     INSERT INTO feedback (session_id, tipo, nome, mensagem)
